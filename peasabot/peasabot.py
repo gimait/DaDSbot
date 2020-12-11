@@ -1,7 +1,11 @@
+"""
+
+    Our peasant bot.
+
+"""
 
 
 class agent:
-
     def __init__(self):
         self.actions = ['', 'u', 'd', 'l', 'r', 'p']
         pass
