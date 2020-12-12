@@ -1,12 +1,11 @@
 """
-
-    Our peasant bot.
-
+Our peasant bot.
 """
 from coderone.dungeon.agent import GameState, PlayerState
 
 
 class agent:
+    """ Agent bot."""
     def __init__(self) -> None:
         self.actions = ['', 'u', 'd', 'l', 'r', 'p']
         pass

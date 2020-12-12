@@ -100,7 +100,7 @@ class GameQLearner:
         self.optimizer = torch.optim.RMSprop(self.policy_net.parameters())
 
         # Memory
-        self.memory = GameMemoryBuffer(int(1000000/self.stm_buffer_size))
+        self.memory = GameMemoryBuffer(int(1000000 / self.stm_buffer_size))
         self.stm = ShortTermMemoryBuffer(self.stm_buffer_size)
 
         # Play variables
@@ -143,7 +143,7 @@ class GameQLearner:
         self.bombs = solid_state["bombs"]
         self.turn = solid_state["turn"]
         self.player = solid_state["players"][self.player_num]
-        enemy = solid_state["players"][self.player_num-1]
+        enemy = solid_state["players"][self.player_num - 1]
 
         # In first iteration, initialize stm
         full_state = np.concatenate((np.array(self.player.position),
@@ -314,5 +314,6 @@ class GameQLearner:
 
     def _process_scores_after_match(self):
         for i, step in enumerate(self.game_steps[:-1]):
-            for j in range(1, len(self.game_steps)-1-i):
-                step['score'] += self.game_steps[i+j]['score'] * 0.8 ** j if self.game_steps[i+j]['score'] > 0 else 0
+            for j in range(1, len(self.game_steps) - 1 - i):
+                step['score'] += (self.game_steps[i + j]['score'] * 0.8 ** j
+                                  if self.game_steps[i + j]['score'] > 0 else 0)
