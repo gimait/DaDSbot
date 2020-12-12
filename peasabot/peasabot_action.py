@@ -15,11 +15,10 @@ class agent(Consumer_bot):
         self.full_map_prev = None
 
         # Attributes updated in the tick
-        #self.cols
-        #self.rows
+        #self.cols #self.rows               Map Size
 
-        #self.game_state
-        #self.location
+        #self.game_state                    Whole game_state
+        #self.location                      Location of your player
 
         #self.ammo
         #self.bombs
@@ -30,22 +29,22 @@ class agent(Consumer_bot):
         pass
 
     def next_move(self, game_state: GameState, player_state: PlayerState):
-        self.update_state(self, game_state, player_state)
+        self.update_state(game_state, player_state)
         self.map_representation.update(game_state, player_state)
 
         updated_map = (self.full_map_prev == self.print_map if self.full_map_prev is not None else True)
         # If the map is not updated dont change the plan (elif)
         if not self.planned_actions :
-            self.planned_actions.append(self.next_move_killer(game_state, player_state))
+            self.planned_actions = self.next_move_killer()
         elif self.planned_actions and updated_map:
-            self.planned_actions.append(self.next_move_killer(game_state, player_state))
-        action = self.planned_actions.pop()
+            self.planned_actions = self.next_move_killer()
+        action = (self.planned_actions.pop() if self.planned_actions  else '')
+
 
         # Update the map for checking if change in the next tick
         self.full_map_prev = self.print_map
 
         return action
-
 
     def reset(self):
         pass
