@@ -1,0 +1,9 @@
+{
+    "headless": false,
+    "interactive": false,
+    "max_iterations": 1800,
+    "start_paused": false,
+    "tick_step": 0.1,
+    "wait_end": 5,
+    "no_text": true
+}
