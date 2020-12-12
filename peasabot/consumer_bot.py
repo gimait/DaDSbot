@@ -3,17 +3,10 @@ import numpy as np
 
 class Consumer_bot():
 
-    def next_move(self, game_state, player_state):
-        """
-        This method is called each time the agent is required to choose an action
-        """
-
+    def update_state(self, game_state, player_state):
         ########################
-        ###    VARIABLES     ###
+        ###     AGENT STATE  ###
         ########################
-
-        # list of all possible actions to take
-        actions = ['', 'u', 'd', 'l', 'r', 'p']
 
         # store some information about the environment
         # game map is represented in the form (x,y)
@@ -24,71 +17,24 @@ class Consumer_bot():
         self.game_state = game_state
         self.location = player_state.location
 
-        print(self.game_state.tick_number)
-        ammo = player_state.ammo
+        self.ammo = player_state.ammo
+        self.bombs = game_state.bombs
 
-        bombs = game_state.bombs
 
-        ########################
-        ###      AGENT       ###
-        ########################
-
-        # first, check if we're within range of a bomb
         # get list of bombs within range
-        bombs_in_range = self.get_bombs_in_range(self.location, bombs)
+        self.bombs_in_range = self.get_bombs_in_range(self.location, self.bombs)
 
         # get our surrounding tiles
-        surrounding_tiles = self.get_surrounding_tiles(self.location)
+        self.surrounding_tiles = self.get_surrounding_tiles(self.location)
 
         # get list of empty tiles around us
-        empty_tiles = self.get_empty_tiles(surrounding_tiles)
+        self.empty_tiles = self.get_empty_tiles(self.surrounding_tiles)
 
-        # if I'm on a bomb, I should probably move
-        if game_state.entity_at(self.location) == 'b':
-
-            print("I'm on a bomb. I'm going to move.")
-
-            if empty_tiles:
-                # choose a random free tile to move to
-                random_tile = random.choice(empty_tiles)
-                action = self.move_to_tile(self.location, random_tile)
-            else:
-                # if there isn't a free spot to move to, we're probably stuck here
-                action = ''
-
-        # if we're near a bomb, we should also probably move
-        elif bombs_in_range:
-
-            print("I'm fleeing.")
-
-            if empty_tiles:
-
-                # get the safest tile for us to move to
-                safest_tile = self.get_safest_tile(empty_tiles, bombs_in_range)
-
-                action = self.move_to_tile(self.location, safest_tile)
-
-            else:
-                action = random.choice(actions)
-
-        # if there are no bombs in range
-        else:
-
-            print("I'm placing a bomb")
-
-            # but first, let's check if we have any ammo
-            if ammo > 0:
-                # we've got ammo, let's place a bomb
-                action = 'p'
-            else:
-                # no ammo, we'll make random moves until we have ammo
-                action = random.choice(actions)
-
-        return action
 
         ########################
         ###     HELPERS      ###
         ########################
+
         # returns the manhattan distance between two tiles, calculated as:
         # 	|x1 - x2| + |y1 - y2|
 
@@ -232,3 +178,61 @@ class Consumer_bot():
                     game_map[x][y] = 'f'  # free space
 
         return game_map
+
+    def next_move_killer(self):
+        # Go towards the closer player
+        pass
+
+    def next_move_bombAvoider(self, game_state, player_state):
+        """
+        This method is called each time the agent is required to choose an action
+        """
+
+        ########################
+        ###    VARIABLES     ###
+        ########################
+
+
+
+        # if I'm on a bomb, I should probably move
+        if game_state.entity_at(self.location) == 'b':
+
+            print("I'm on a bomb. I'm going to move.")
+
+            if empty_tiles:
+                # choose a random free tile to move to
+                random_tile = random.choice(empty_tiles)
+                action = self.move_to_tile(self.location, random_tile)
+            else:
+                # if there isn't a free spot to move to, we're probably stuck here
+                action = ''
+
+        # if we're near a bomb, we should also probably move
+        elif bombs_in_range:
+
+            print("I'm fleeing.")
+
+            if empty_tiles:
+
+                # get the safest tile for us to move to
+                safest_tile = self.get_safest_tile(empty_tiles, bombs_in_range)
+
+                action = self.move_to_tile(self.location, safest_tile)
+
+            else:
+                action = random.choice(actions)
+
+        # if there are no bombs in range
+        else:
+
+            print("I'm placing a bomb")
+
+            # but first, let's check if we have any ammo
+            if ammo > 0:
+                # we've got ammo, let's place a bomb
+                action = 'p'
+            else:
+                # no ammo, we'll make random moves until we have ammo
+                action = random.choice(actions)
+
+        return action
