@@ -13,25 +13,17 @@ class DistanceMap:
     """ Creates map of distances from player to    """
     def __init__(self, map_size: Tuple[int, int]) -> None:
         self.map_size = map_size
-        self.man_map = self.gen_manhattan_map(map_size)
         self._distance_map = []
+        self._bomb_effect_map = []
 
     def update(self, state: GameState, player: PlayerState) -> None:
         self.state = state
         self.player = player.location
-        self._distance_map = self.calculate_distances()
+        self._distance_map = self._init_distance_map()
+        self._bomb_effect_map = self._init_bomb_effect_map()
 
     def distance_to_point(self, point: Tuple[int, int]) -> int:
         return self._distance_map[self.board_to_dm(point)]
-
-    def board_to_dm(self, point: Tuple[int, int]) -> int:
-        pass
-
-    def calculate_distances(self):
-        if not self._distance_map:
-            self._distance_map = self._init_distance_map()
-        else:
-            pass
 
     def _init_distance_map(self) -> np.array:
         # initialize distance map the first time we get one:
@@ -39,8 +31,17 @@ class DistanceMap:
         for block in self.state.all_blocks:
             basemap[block] = -1
         # Run basic distance with dilation operation
-        basemap = self._calculate_steps(basemap, self.player)
-        return basemap
+        return self._calculate_steps(basemap, self.player)
+
+    def _init_bomb_effect_map(self) -> np.array:
+        basemap = np.zeros(self.state.size)
+        for block in self.state.ore_blocks:
+            basemap[block] = 1
+        for block in self.state.soft_blocks:
+            basemap[block] = 1
+        for block in self.state.indestructible_blocks:
+            basemap[block] = -1
+        return self._get_bomb_ranges(basemap)
 
     @staticmethod
     def _calculate_steps(_map: np.array, center: Tuple[int, int]) -> np.array:
@@ -87,38 +88,34 @@ class DistanceMap:
 
         Expects a map with 0 for free cells, -1 for undestructible blocks and 1 for destructible blocks.
         """
-        done = False
         # Add borders of map:
         u_ones = np.full(_map.shape[1], -1)
         v_ones = np.full((_map.shape[0] + 4, 1), -1)
         ext_map = np.vstack([u_ones, u_ones, _map, u_ones, u_ones])
         ext_map = np.hstack([v_ones, v_ones, ext_map, v_ones, v_ones])
 
-        while not done:
-            done = True
-            for u in range(1, ext_map.shape[0] - 1):
-                for v in range(1, ext_map.shape[1] - 1):
-                    if ext_map[u, v] == 0:
-                        targets = 0
-                        if ext_map[u - 1, v] > 0:
-                            targets += 1
-                        elif ext_map[u - 2, v] > 0:
-                            targets += 1
-                        if ext_map[u + 1, v] > 0:
-                            targets += 1
-                        elif ext_map[u + 2, v] > 0:
-                            targets += 1
-                        if ext_map[u, v - 1] > 0:
-                            targets += 1
-                        elif ext_map[u, v - 2] > 0:
-                            targets += 1
-                        if ext_map[u, v + 1] > 0:
-                            targets += 1
-                        elif ext_map[u, v + 1] > 0:
-                            targets += 1
-                        if targets:
-                            done = False
-                            _map[u - 1, v - 1] = targets
+        for u in range(2, ext_map.shape[0] - 2):
+            for v in range(2, ext_map.shape[1] - 2):
+                if ext_map[u, v] == 0:
+                    targets = 0
+                    if ext_map[u - 1, v] > 0:
+                        targets += 1
+                    elif ext_map[u - 2, v] > 0:
+                        targets += 1
+                    if ext_map[u + 1, v] > 0:
+                        targets += 1
+                    elif ext_map[u + 2, v] > 0:
+                        targets += 1
+                    if ext_map[u, v - 1] > 0:
+                        targets += 1
+                    elif ext_map[u, v - 2] > 0:
+                        targets += 1
+                    if ext_map[u, v + 1] > 0:
+                        targets += 1
+                    elif ext_map[u, v + 1] > 0:
+                        targets += 1
+                    if targets:
+                        _map[u - 2, v - 2] = targets
         return _map
 
     @staticmethod
