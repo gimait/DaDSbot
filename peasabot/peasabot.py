@@ -12,11 +12,10 @@ class agent():
         self.actions = ['', 'u', 'd', 'l', 'r', 'p']
         self.map_representation = DistanceMap((9, 11))
 
-
         pass
 
     def next_move(self, game_state: GameState, player_state: PlayerState):
-        self.map_representation.update(game_state, player_state)
+        self.map_representation.update(game_state, player_state.location, player_state.id)
 
         if self.planned_actions:
             action = self.planned_actions.pop()
