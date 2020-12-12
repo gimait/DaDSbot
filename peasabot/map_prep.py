@@ -23,7 +23,7 @@ class DistanceMap:
         self._bomb_effect_map = self._init_bomb_effect_map()
 
     def distance_to_point(self, point: Tuple[int, int]) -> int:
-        return self._distance_map[self.board_to_dm(point)]
+        return self._distance_map[point]
 
     def _init_distance_map(self) -> np.array:
         # initialize distance map the first time we get one:
