@@ -218,10 +218,10 @@ class ConsumerBot():
         return list_tiles
 
     def get_closest_ammo(self):
-        distance = 999  # here check with the value of the no possible from the distance_to_point
+        distance = 999  # here check with the value of the no possible from the value_at_point
         tile = None
         for i, ammo_tile in enumerate(self.game_state.ammo):
-            d2p_ammo = self.map_representation.distance_to_point(ammo_tile)
+            d2p_ammo = self.map_representation.value_at_point(ammo_tile)
             if d2p_ammo != 0 and d2p_ammo < distance:
                 distance = d2p_ammo
                 tile = ammo_tile
@@ -236,8 +236,8 @@ class ConsumerBot():
         if not tlist:
             return([])
         for tiles in tlist:
-            self.map_representation.distance_to_point(tiles)
-            weight = np.append(weight, self.map_representation.distance_to_point(tiles))
+            self.map_representation.value_at_point(tiles)
+            weight = np.append(weight, self.map_representation.value_at_point(tiles))
         index = np.where(weight == np.amin(weight))
         tile = (tnplist[index].tolist())[-1]
         return tile
@@ -246,7 +246,7 @@ class ConsumerBot():
         plan = []
         tile = tuple(goal_tile)
 
-        if self.map_representation.distance_to_point(tile) == 0:
+        if self.map_representation.value_at_point(tile) == 0:
             return plan, False
 
         timeout = TIMEOUT
@@ -258,21 +258,21 @@ class ConsumerBot():
             list_tiles = self.get_cross_tiles(tile)
             (new_tile_r, new_tile_u, new_tile_l, new_tile_d) = (list_tiles[0], list_tiles[1],
                                                                 list_tiles[2], list_tiles[3])
-            if self.game_state.is_in_bounds(new_tile_r) and self.map_representation.distance_to_point(new_tile_r) > 0:
+            if self.game_state.is_in_bounds(new_tile_r) and self.map_representation.value_at_point(new_tile_r) > 0:
                 moves = np.append(moves, 'r')
-                weight = np.append(weight, self.map_representation.distance_to_point(new_tile_r))
+                weight = np.append(weight, self.map_representation.value_at_point(new_tile_r))
             # Up
-            if self.game_state.is_in_bounds(new_tile_u) and self.map_representation.distance_to_point(new_tile_u) > 0:
+            if self.game_state.is_in_bounds(new_tile_u) and self.map_representation.value_at_point(new_tile_u) > 0:
                 moves = np.append(moves, 'u')
-                weight = np.append(weight, self.map_representation.distance_to_point(new_tile_u))
+                weight = np.append(weight, self.map_representation.value_at_point(new_tile_u))
             # Left
-            if self.game_state.is_in_bounds(new_tile_l) and self.map_representation.distance_to_point(new_tile_l) > 0:
+            if self.game_state.is_in_bounds(new_tile_l) and self.map_representation.value_at_point(new_tile_l) > 0:
                 moves = np.append(moves, 'l')
-                weight = np.append(weight, self.map_representation.distance_to_point(new_tile_l))
+                weight = np.append(weight, self.map_representation.value_at_point(new_tile_l))
             # Down
-            if self.game_state.is_in_bounds(new_tile_d) and self.map_representation.distance_to_point(new_tile_d) > 0:
+            if self.game_state.is_in_bounds(new_tile_d) and self.map_representation.value_at_point(new_tile_d) > 0:
                 moves = np.append(moves, 'd')
-                weight = np.append(weight, self.map_representation.distance_to_point(new_tile_d))
+                weight = np.append(weight, self.map_representation.value_at_point(new_tile_d))
 
             # minimum value
             if weight.size == 0:
@@ -313,7 +313,7 @@ class ConsumerBot():
         if self.substrategy == 1:
             # Pick up bombS
             ammo_tile = self.get_closest_ammo()
-            if ammo_tile is not None and self.map_representation.distance_to_point(ammo_tile) > 0:
+            if ammo_tile is not None and self.map_representation.value_at_point(ammo_tile) > 0:
                 plan, _ = self.plan_to_tile(ammo_tile)
                 return plan
             else:

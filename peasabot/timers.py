@@ -6,6 +6,7 @@ from typing import Optional, Tuple
 
 
 class ItemTimer:
+    """ This class keeps track of the time that a item has been in the map. """
     __slots__ = [
         "position",
         "placement_step"
@@ -20,11 +21,13 @@ class ItemTimer:
 
 
 class TimeBomb(ItemTimer):
+    """ Timer for bombs (to tell when they will explode)."""
     def time_to_explode(self, current_step):
         return 35 - self.lapsed_time(current_step)
 
 
 class AmmoTimer(ItemTimer):
+    """ Timer for ammo. It can be initialized when a bomb has been created, and updated once the ammo appears."""
     def time_to_appear(self, current_step):
         return 70 - self.placement_step
 

@@ -40,6 +40,9 @@ class GrMap:
         self.player_id = player_id
         self._initialize()
 
+    def value_at_point(self, point: Tuple[int, int]) -> int:
+        return self._map[point]
+
 
 class DistanceMap(GrMap):
     """ Creates map of distances from player to all spots"""
@@ -50,9 +53,6 @@ class DistanceMap(GrMap):
     def __init__(self, map_size: Tuple[int, int]) -> None:
         super().__init__(map_size)
         self.accessible_area = 0
-
-    def distance_to_point(self, point: Tuple[int, int]) -> int:
-        return self._map[point]
 
     def _initialize(self) -> np.array:
         # initialize distance map the first time we get one:
@@ -98,7 +98,7 @@ class DistanceMap(GrMap):
                             visible.append(ext_map[u, v + 1])
                         if visible:
                             done = False
-                            incr = 1 + max(visible)
+                            incr = 1 + min(visible)
                             _map[u - 1, v - 1] = incr
                             ext_map[u, v] = incr
                             area += 1
@@ -188,8 +188,8 @@ class FreedomMap(GrMap):
         ext_map = np.vstack([self.u_border, _map, self.u_border])
         ext_map = np.hstack([self.v_border, ext_map, self.v_border])
 
-        for u in range(1, ext_map.shape[0] - 2):
-            for v in range(1, ext_map.shape[1] - 2):
+        for u in range(1, ext_map.shape[0] - 1):
+            for v in range(1, ext_map.shape[1] - 1):
                 if ext_map[u, v] == 1:
                     val = 0
                     for i in range(3):
