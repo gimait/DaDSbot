@@ -3,27 +3,22 @@ Our peasant bot.
 """
 from coderone.dungeon.agent import GameState, PlayerState
 
-from .map_prep import DistanceMap
+from .map_prep import DistanceMap, BombMap, FreedomMap
 
 
 class agent():
     """ Agent bot."""
     def __init__(self) -> None:
         self.actions = ['', 'u', 'd', 'l', 'r', 'p']
-        self.map_representation = DistanceMap((9, 11))
-
-        pass
+        gamesize = (12, 10)
+        self.map_representations = [DistanceMap(gamesize), BombMap(gamesize), FreedomMap(gamesize)]
 
     def next_move(self, game_state: GameState, player_state: PlayerState):
-        self.map_representation.update(game_state, player_state.location, player_state.id)
+        for rep in self.map_representations:
+            rep.update(game_state, player_state.location, player_state.id)
 
-        if self.planned_actions:
-            action = self.planned_actions.pop()
-        else:
-            self.next_move_()
         # do stuff here to plan your next action
-
-        return action
+        return 0
 
     def reset(self):
         pass
