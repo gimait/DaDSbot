@@ -133,3 +133,6 @@ dmypy.json
 *.code-workspace
 settings.json
 launch.json
+
+# compressed files
+*.zip
