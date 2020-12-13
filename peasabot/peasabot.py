@@ -4,7 +4,7 @@ Our peasant bot.
 from coderone.dungeon.agent import GameState, PlayerState
 
 from .consumer_bot import ConsumerBot
-from .map_prep import DistanceMap, FreedomMap
+from .map_prep import DistanceMap, FreedomMap, BombMap
 
 
 class Agent(ConsumerBot):
@@ -13,6 +13,7 @@ class Agent(ConsumerBot):
         self.actions = ['', 'u', 'd', 'l', 'r', 'p']
         self.map_representation = DistanceMap((12, 10))
         self.free_map = FreedomMap((12, 10))
+        self.bomb_target_map = BombMap((12, 10))
         self.planned_actions = []
         self.full_map_prev = None
         self.substrategy = 1
@@ -35,6 +36,7 @@ class Agent(ConsumerBot):
         self.update_state(game_state, player_state)
         self.map_representation.update(game_state, player_state.location, player_state.id)
         self.free_map.update(game_state, player_state.location, player_state.id)
+        self.bomb_target_map.update(game_state, player_state.location, player_state.id)
 
         updated_map = (self.full_map_prev == self.print_map if self.full_map_prev is not None else True)
         # If the map is not updated dont change the plan (elif)

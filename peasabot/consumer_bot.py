@@ -244,7 +244,10 @@ class ConsumerBot():
 
     def plan_to_tile(self, goal_tile):
         plan = []
-        tile = goal_tile
+        tile = tuple(goal_tile)
+
+        if self.map_representation.distance_to_point(tile) == 0:
+            return plan, False
 
         timeout = TIMEOUT
         ite = 0
@@ -291,7 +294,7 @@ class ConsumerBot():
                 tile = new_tile_d
             else:
                 break
-        return plan
+        return plan, True
 
     def next_move_killer(self):
         # First, check that you are not in a danger zone
@@ -304,15 +307,15 @@ class ConsumerBot():
             if abs(b[0] - self.location[0]) <= 2 or abs(b[1] - self.location[1]):
                 danger_zone = [b, (b[0] - 2, b[1]), (b[0] - 1, b[1]), (b[0] + 2, b[1]), (b[0] + 1, b[1]),
                                (b[0], b[1] - 2), (b[0], b[1] - 1), (b[0], b[1] + 2), (b[0], b[1] + 1)]
-                plan = self.path_to_safest_area(danger_zone)
+                plan, _ = self.path_to_safest_area(danger_zone)
                 return plan
 
         if self.substrategy == 1:
             # Pick up bombS
             ammo_tile = self.get_closest_ammo()
             if ammo_tile is not None and self.map_representation.distance_to_point(ammo_tile) > 0:
-                plan = self.plan_to_tile(ammo_tile)
-                return(plan)
+                plan, _ = self.plan_to_tile(ammo_tile)
+                return plan
             else:
                 self.substrategy = 2
 
@@ -327,14 +330,20 @@ class ConsumerBot():
                 tiles_list = tiles_list + t
             if self.player_state.location in tiles_list:
                 self.substrategy = 1
-                return(['p'])
+                return ['p']
             bomb_tile = self.evaluate_bomb(tiles_list)
             if bomb_tile:
-                plan = self.plan_to_tile(bomb_tile)
-                plan.insert(0, 'p')
-                return (plan)
+                plan, connected = self.plan_to_tile(bomb_tile)
+                if connected:
+                    plan.insert(0, 'p')
+                    return plan
 
-        return ['']  # [random.choice(self.actions)]
+        # If nothing to do, put a bomb in a spot of high impact:
+        best_point_for_bomb = self.get_best_point_for_bomb()
+        plan, _ = self.plan_to_tile(best_point_for_bomb)
+        plan.append('p')
+
+        return plan
 
     def path_to_safest_area(self, danger_zone: Optional[List[Tuple[int, int]]]):
         # take out unsafe tiles from free_map:
@@ -346,6 +355,10 @@ class ConsumerBot():
         safest_tile = np.unravel_index(safety_map.argmax(), safety_map.shape)
 
         return self.plan_to_tile(safest_tile)
+
+    def get_best_point_for_bomb(self):
+        optimal_points = np.multiply(self.map_representation._map, self.bomb_target_map._map)
+        return np.unravel_index(optimal_points.argmax(), optimal_points.shape)
 
     def next_move_bombAvoider(self, game_state, player_state):
         """ Call each time the agent is required to choose an action """
