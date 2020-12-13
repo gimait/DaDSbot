@@ -17,8 +17,10 @@ class Agent(ConsumerBot):
         self.free_map.update(game_state, player_state.location, player_state.id)
         self.bomb_target_map.update(game_state, player_state.location, player_state.id)
 
-        updated_map = (self.full_map_prev == self.print_map(game_state) if self.full_map_prev is not None else True)
-        # Yes I debug with a #print(updated_map)
+        full_map = self.print_map(game_state)
+        updated_map = (self.full_map_prev == full_map if self.full_map_prev is not None else True)
+        # Yes I debug with a
+        print(updated_map)
         if not self.planned_actions:
             self.planned_actions = self.next_move_killer()
         elif updated_map:
@@ -27,7 +29,7 @@ class Agent(ConsumerBot):
             pass
         action = (self.planned_actions.pop() if self.planned_actions else '')
 
-        self.full_map_prev = self.print_map(game_state) # Update the map for checking if change in the next tick
+        self.full_map_prev = full_map # Update the map for checking if change in the next tick
         self.last_move = action
 
         return action
