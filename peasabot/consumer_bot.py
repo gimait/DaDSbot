@@ -14,7 +14,8 @@ from .timers import TimeBomb
 from .utilities import get_opponents
 
 TIMEOUT = 20  # Maximum of positions to calculate in the planning
-
+MAX_BOMB = 5  # Dont pick up more
+MIN_BOMB = 1  # Dont place bomb
 
 class ConsumerBot:
     __slots__ = [
@@ -32,6 +33,7 @@ class ConsumerBot:
         self.map_representation = DistanceMap(self.size)
         self.free_map = FreedomMap(self.size)
         self.bomb_target_map = BombMap(self.size)
+        self.previous_plan = None
 
         self.planned_actions = []
         self.full_map_prev = None
@@ -108,9 +110,17 @@ class ConsumerBot:
                 tile = ammo_tile
         return tile
 
+    def get_best_point_for_bomb(self):
+        optimal_points = np.multiply(self.map_representation._map, self.bomb_target_map._map)
+        return np.unravel_index(optimal_points.argmax(), optimal_points.shape)
+
+    def get_freedom_tiles(self):
+        freedom_tiles = np.multiply(self.map_representation._map, self.bomb_target_map._map)
+        return np.unravel_index(freedom_tiles.argmax(), freedom_tiles.shape)
+
     def evaluate_bomb(self, tiles_list):
         # Input a list of tiles to evaluate Outputs the best tile to place a bomb
-        # First it only considers the closest distance if any
+        # First it only considers the closest distance if any better strategy is expected here
         weight = np.array([])
         tlist = ([t for t in tiles_list if self.game_state.is_in_bounds(t)])
         tnplist = np.array(tlist)
@@ -122,6 +132,17 @@ class ConsumerBot:
         index = np.where(weight == np.amin(weight))
         tile = (tnplist[index].tolist())[-1]
         return tile
+
+    def path_to_safest_area(self, danger_zone: Optional[List[Tuple[int, int]]]):
+        # take out unsafe tiles from free_map:
+        for tile in danger_zone:
+            if tile[0] >= 0 and tile[1] >= 0 and tile[0] < self.free_map.size[0] and tile[1] < self.free_map.size[1]:
+                self.free_map._map[tile] = 0
+        safety_map = np.multiply(self.free_map._map, self.map_representation._map)
+
+        safest_tile = np.unravel_index(safety_map.argmax(), safety_map.shape)
+
+        return self.plan_to_tile(safest_tile)
 
     def plan_to_tile(self, goal_tile: Tuple[int, int]) -> Tuple[List, bool]:
         plan = []
@@ -157,7 +178,7 @@ class ConsumerBot:
 
             # minimum value
             if weight.size == 0:
-                return([''])
+                return([''], False)
 
             index = np.where(weight == np.amin(weight))
             movement = (moves[index].tolist())[-1]
@@ -177,69 +198,68 @@ class ConsumerBot:
                 break
         return plan, True
 
-    def next_move_killer(self):
-        # First, check that you are not in a danger zone
+    def is_in_danger(self):
         bombs_about_to_explode = []
+        danger_zone = []
         for b in self.current_bombs:
             if b.time_to_explode(self.game_state.tick_number) < 10:
                 bombs_about_to_explode.append(b.position)
 
         for b in bombs_about_to_explode:
-            if abs(b[0] - self.location[0]) <= 2 or abs(b[1] - self.location[1]):
-                danger_zone = [b, (b[0] - 2, b[1]), (b[0] - 1, b[1]), (b[0] + 2, b[1]), (b[0] + 1, b[1]),
+            if abs(b[0] - self.location[0]) <= 2 or abs(b[1] - self.location[1]) <= 2:
+                danger_zone = danger_zone + [b, (b[0] - 2, b[1]), (b[0] - 1, b[1]), (b[0] + 2, b[1]), (b[0] + 1, b[1]),
                                (b[0], b[1] - 2), (b[0], b[1] - 1), (b[0], b[1] + 2), (b[0], b[1] + 1)]
-                plan, _ = self.path_to_safest_area(danger_zone)
-                return plan
+        status = (True if danger_zone else False)
+        return danger_zone, status
 
-        if self.substrategy == 1:
-            # Pick up bombS
-            ammo_tile = self.get_closest_ammo()
-            if ammo_tile is not None and self.map_representation.value_at_point(ammo_tile) > 0:
-                plan, _ = self.plan_to_tile(ammo_tile)
-                return plan
-            else:
-                self.substrategy = 2
+    def is_ammo_avail(self):
+        ammo_tile = self.get_closest_ammo()
+        if ammo_tile is not None and self.map_representation.value_at_point(ammo_tile) > 0:
+            status = True
+        else:
+            status = False
+        return ammo_tile, status
 
-        if self.substrategy == 2:
-            # Harassment and place
-            if self.player_state.ammo <= 2:
-                self.substrategy = 1
-            # Go towards the closer player
-            tiles_list = []
-            for opponent_tile in get_opponents(self.player_state.id, self.game_state._players):
-                t = self.get_cross_tiles(opponent_tile)
-                tiles_list = tiles_list + t
-            if self.player_state.location in tiles_list:
-                self.substrategy = 1
-                return ['p']
-            bomb_tile = self.evaluate_bomb(tiles_list)
-            if bomb_tile:
-                plan, connected = self.plan_to_tile(bomb_tile)
-                if connected:
-                    plan.insert(0, 'p')
-                    return plan
+    def is_killing_an_option(self):
+        tiles_list = []
+        for opponent_tile in get_opponents(self.player_state.id, self.game_state._players):
+            t = self.get_cross_tiles(opponent_tile)
+            tiles_list = tiles_list + t
+        bomb_tile = self.evaluate_bomb(tiles_list)
+        status = (True if bomb_tile else False)
+        return bomb_tile, status
 
-        # If nothing to do, put a bomb in a spot of high impact:
-        best_point_for_bomb = self.get_best_point_for_bomb()
-        plan, _ = self.plan_to_tile(best_point_for_bomb)
-        plan.append('p')
+    def next_move_killer(self):
+        # Agent possibilities
+        danger_zone, danger_status = self.is_in_danger()
+        ammo_tile, ammo_status = self.is_ammo_avail()
+        kill_tiles, kill_status = self.is_killing_an_option()
+
+        # 1 Avoid Danger
+        if danger_status:
+            plan, _ = self.path_to_safest_area(danger_zone)
+        # 2 Pick up ammo if less than MAX
+        elif ammo_status and self.ammo < MAX_BOMB:
+            plan, _ = self.plan_to_tile(ammo_tile)
+        # 3 Plan for killing, finish it if started
+        elif self.previous_plan == "kill" or kill_status:
+            plan, connected = self.plan_to_tile(kill_tiles)
+            self.previous_plan = (None if not plan else "kill")
+            plan.insert(0, 'p')
+        # 4 Place a bomb in a good place if you have bombs
+        elif self.previous_plan == "loot" or self.ammo > MIN_BOMB:
+            best_point_for_bomb = self.get_best_point_for_bomb()
+            plan, _ = self.plan_to_tile(best_point_for_bomb)
+            self.previous_plan = (None if not plan else "loot")
+            plan.insert(0, 'p')
+        # Last Find a good place to wait
+        else:
+            free_tile = self.get_freedom_tiles()
+            plan, _ = self.plan_to_tile(free_tile)
 
         return plan
 
-    def path_to_safest_area(self, danger_zone: Optional[List[Tuple[int, int]]]):
-        # take out unsafe tiles from free_map:
-        for tile in danger_zone:
-            if tile[0] >= 0 and tile[1] >= 0 and tile[0] < self.free_map.size[0] and tile[1] < self.free_map.size[1]:
-                self.free_map._map[tile] = 0
-        safety_map = np.multiply(self.free_map._map, self.map_representation._map)
 
-        safest_tile = np.unravel_index(safety_map.argmax(), safety_map.shape)
-
-        return self.plan_to_tile(safest_tile)
-
-    def get_best_point_for_bomb(self):
-        optimal_points = np.multiply(self.map_representation._map, self.bomb_target_map._map)
-        return np.unravel_index(optimal_points.argmax(), optimal_points.shape)
 
     def next_move_bombAvoider(self, game_state, player_state):
         """ Call each time the agent is required to choose an action """
@@ -296,14 +316,9 @@ class ConsumerBot:
         cols = game_state.size[0]
         rows = game_state.size[1]
 
-        game_map = np.zeros((rows, cols))
-
+        game_map = []
         for x in range(cols):
             for y in range(rows):
-                entity = game_state.entity_at((x, y))
-                if entity is not None:
-                    game_map[x][y] = entity
-                else:
-                    game_map[x][y] = 'f'  # free space
+                game_map.append(( game_state.entity_at((x, y)) if game_state.entity_at((x, y)) is not None else 'f'))
 
         return game_map
