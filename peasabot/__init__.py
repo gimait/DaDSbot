@@ -1,5 +1,5 @@
-from . import peasabot
+from .peasabot import Agent
 
 
 def agent():
-    return peasabot.Agent()
+    return Agent()

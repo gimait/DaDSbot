@@ -3,17 +3,21 @@ Consumer bot
 """
 
 import random
+from typing import List, Optional, Tuple
+
+from coderone.dungeon.agent import GameState, PlayerState
 
 import numpy as np
 
+from .timers import TimeBomb
 from .utilities import get_opponents
 
 TIMEOUT = 20  # Maximum of positions to calculate in the planning
 
 
-class Consumer_bot():
+class ConsumerBot():
 
-    def update_state(self, game_state, player_state):
+    def update_state(self, game_state: GameState, player_state: PlayerState):
         ########################
         # ##   AGENT STATE  ## #
         ########################
@@ -32,6 +36,27 @@ class Consumer_bot():
         self.hp = player_state.hp
         self.reward = player_state.reward
         self.power = player_state.power
+
+        # Check new bombs and update timers
+        if game_state.bombs:
+            if not self.current_bombs:
+                for bomb in game_state.bombs:
+                    self.current_bombs.append(TimeBomb(game_state.tick_number, bomb))
+            else:
+                # Update new bombs
+                stable_bomb_pos = []
+                stable_bomb_timer = []
+                for cb in self.current_bombs:
+                    if cb.position in game_state.bombs:
+                        stable_bomb_pos.append(cb.position)
+                        stable_bomb_timer.append(cb)
+
+                new_bombs = [TimeBomb(game_state.tick_number, bomb) for bomb in game_state.bombs
+                             if bomb not in stable_bomb_pos]
+                stable_bombs = [bomb for bomb in self.current_bombs if bomb in stable_bomb_timer]
+                self.current_bombs = new_bombs + stable_bombs
+        else:
+            self.current_bombs = []
 
         # get list of bombs within range
         self.bombs_in_range = self.get_bombs_in_range(self.location, game_state.bombs)
@@ -269,6 +294,18 @@ class Consumer_bot():
         return plan
 
     def next_move_killer(self):
+        # First, check that you are not in a danger zone
+        bombs_about_to_explode = []
+        for b in self.current_bombs:
+            if b.time_to_explode(self.game_state.tick_number) < 10:
+                bombs_about_to_explode.append(b.position)
+
+        for b in bombs_about_to_explode:
+            if abs(b[0] - self.location[0]) <= 2 or abs(b[1] - self.location[1]):
+                danger_zone = [b, (b[0] - 2, b[1]), (b[0] - 1, b[1]), (b[0] + 2, b[1]), (b[0] + 1, b[1]),
+                               (b[0], b[1] - 2), (b[0], b[1] - 1), (b[0], b[1] + 2), (b[0], b[1] + 1)]
+                plan = self.path_to_safest_area(danger_zone)
+                return plan
 
         if self.substrategy == 1:
             # Pick up bombS
@@ -281,7 +318,7 @@ class Consumer_bot():
 
         if self.substrategy == 2:
             # Harassment and place
-            if self.player_state.ammo <= 1:
+            if self.player_state.ammo <= 2:
                 self.substrategy = 1
             # Go towards the closer player
             tiles_list = []
@@ -298,6 +335,17 @@ class Consumer_bot():
                 return (plan)
 
         return ['']  # [random.choice(self.actions)]
+
+    def path_to_safest_area(self, danger_zone: Optional[List[Tuple[int, int]]]):
+        # take out unsafe tiles from free_map:
+        for tile in danger_zone:
+            if tile[0] >= 0 and tile[1] >= 0 and tile[0] < self.free_map.size[0] and tile[1] < self.free_map.size[1]:
+                self.free_map._map[tile] = 0
+        safety_map = np.multiply(self.free_map._map, self.map_representation._map)
+
+        safest_tile = np.unravel_index(safety_map.argmax(), safety_map.shape)
+
+        return self.plan_to_tile(safest_tile)
 
     def next_move_bombAvoider(self, game_state, player_state):
         """ Call each time the agent is required to choose an action """

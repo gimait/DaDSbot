@@ -3,15 +3,15 @@ Our peasant bot.
 """
 from coderone.dungeon.agent import GameState, PlayerState
 
-from .consumer_bot import Consumer_bot
+from .consumer_bot import ConsumerBot
 from .map_prep import DistanceMap
 
 
-class agent(Consumer_bot):
+class Agent(ConsumerBot):
     """ Agent bot."""
     def __init__(self) -> None:
         self.actions = ['', 'u', 'd', 'l', 'r', 'p']
-        self.map_representation = DistanceMap((9, 11))
+        self.map_representation = DistanceMap((12, 10))
         self.planned_actions = []
         self.full_map_prev = None
         self.substrategy = 1
