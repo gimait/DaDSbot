@@ -1,7 +1,78 @@
-from coderone.dungeon.main import run_match
+"""
+The main way for peasants to train.
+"""
+
 import argparse
 import sys
-import jsonplus
+from typing import List
+
+
+from coderone.dungeon.agent_driver.multiproc_driver import Driver
+from coderone.dungeon.game import Game
+from coderone.dungeon.main import __load_or_generate_config, _prepare_import
+
+
+def _load_agent_drivers(agent_modules, config: dict, watch=False):
+    agents = []
+
+    for counter, agent_module in enumerate(agent_modules):
+        try:
+            module_name = _prepare_import(agent_module)
+            driver = Driver(module_name, watch, config)
+            agents.append(driver)
+        except Exception:
+            return None
+
+    return agents
+
+
+def run_training(agents: List[str], headless: bool, number_of_games: int):
+    """ Initialize agents and run a bunch of games. """
+    # These values are fixed for the game atm
+    row_count = 10
+    column_count = 12
+    iteration_limit = 1800
+    is_interactive = False
+    config = __load_or_generate_config(None)
+    # Load agent modules
+    agents_drivers = _load_agent_drivers(agents, watch=False, config=config)
+    if not agents_drivers:
+        return None
+
+    agents = [driver.agent() for driver in agents_drivers]
+
+    for i in range(number_of_games):
+        game = Game(row_count=row_count, column_count=column_count, max_iterations=iteration_limit)
+
+        # Add all agents to the game
+        for agent, driver in zip(agents, agents_drivers):
+            game.add_agent(agent, driver.name)
+
+        # Add a player for the user if running in interactive mode or configured interactive
+        user_pid = game.add_player("Player") if is_interactive else None
+
+        game.generate_map()
+
+        tick_step = config.get('tick_step')
+        if headless:
+            from coderone.dungeon.headless_client import Client
+
+            client = Client(game=game, config=config)
+            client.run(tick_step)
+        else:
+            if config.get('hack'):
+                from coderone.dungeon.hack_client import Client
+                screen_width = 80
+                screen_height = 24
+            else:
+                from coderone.dungeon.arcade_client import Client, WIDTH, HEIGHT, PADDING
+
+                screen_width = PADDING[0] * 2 + WIDTH * 12
+                screen_height = PADDING[1] * 3 + HEIGHT * 10
+
+            window = Client(width=screen_width, height=screen_height, title="title", game=game, config=config,
+                            interactive=is_interactive, user_pid=user_pid)
+            window.run(tick_step)
 
 
 def main():
@@ -10,72 +81,18 @@ def main():
     parser.add_argument('--headless', action='store_true',
                         default=False,
                         help='run without graphics')
-    parser.add_argument('--interactive', action='store_true',
-                        default=False,
-                        help='all a user to contol a player')
-    parser.add_argument('--no_text', action='store_true',
-                        default=False,
-                        help='Graphics bug workaround - disables all text')
-    parser.add_argument('--start_paused', action='store_true',
-                        default=False,
-                        help='Start a game in pause mode, only if interactive')
-    parser.add_argument('--players', type=str,
-                        help="Comma-separated list of player names")
-    parser.add_argument('--hack', action='store_true',
-                        default=False,
-                        help=argparse.SUPPRESS)
 
-    parser.add_argument('--submit', action='store_true',
-                        default=False,
-                        help="Don't run the game, but submit the agent as team entry into the trournament")
-
-    parser.add_argument('--record', type=str,
-                        help='file name to record game')
-    parser.add_argument('--watch', action='store_true',
-                        default=False,
-                        help='automatically reload agents on file changes')
-    parser.add_argument('--config', type=str,
-                        default=None,
-                        help='path to the custom config file')
+    parser.add_argument('--games', type=int, default=10)
 
     parser.add_argument("agents", nargs="+", help="agent module")
 
     args = parser.parse_args()
 
-    n_agents = len(args.agents)
-    if args.submit:
-        if n_agents > 1:
-            print(
-                "Error: Only a single agent entry per team is allowed.\n"
-                f"You have specified {n_agents} agent modules.\n"
-                "Please chose only one you wish submit and try again.\n",
-                file=sys.stderr)
-            sys.exit(1)
-
-        sys.exit(0)
-
-    if len(args.agents) < 2 and (args.headless or not args.interactive):
+    if len(args.agents) < 2:
         print("At least 2 agents must be provided in the match mode. Exiting", file=sys.stderr)
         sys.exit(1)
 
-    if args.headless and args.interactive:
-        print("Interactive play is not support in headless mode. Exiting", file=sys.stderr)
-        sys.exit(1)
-    if args.headless and args.no_text:
-        print("Makes no sense to run headless and ask for no-text. Ignoring", file=sys.stderr)
-    if not args.interactive and args.start_paused:
-        print("Can not start paused in non-interactive mode. Exiting", file=sys.stderr)
-        sys.exit(1)
-
-    jsonplus.prefer_compat()
-
-    players = args.players.split(',') if args.players else None
-    result = run_match(agents=args.agents, players=players, config_name=args.config, record_file=args.record,
-                       watch=args.watch, args=args)
-    print(jsonplus.pretty(result))
-
-    # We done here, all good.
-    sys.exit(0)
+    run_training(args.agents, args.headless, args.games)
 
 
 if __name__ == "__main__":
