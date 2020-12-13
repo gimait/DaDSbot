@@ -16,6 +16,7 @@ from .utilities import get_opponents
 TIMEOUT = 20  # Maximum of positions to calculate in the planning
 MAX_BOMB = 5  # Don't pick up more
 MIN_BOMB = 1  # Don't place bomb
+BOMB_TICK_THRESHOLD = 10  # Time for escaping of the bomb
 
 class ConsumerBot:
     __slots__ = [
@@ -106,7 +107,7 @@ class ConsumerBot:
         return np.unravel_index(optimal_points.argmax(), optimal_points.shape)
 
     def get_freedom_tiles(self):
-        freedom_tiles = np.multiply(self.map_representation._map, self.bomb_target_map._map)
+        freedom_tiles = np.multiply(self.map_representation._map, self.free_map._map)
         return np.unravel_index(freedom_tiles.argmax(), freedom_tiles.shape)
 
     def evaluate_bomb(self, tiles_list):
@@ -189,11 +190,32 @@ class ConsumerBot:
                 break
         return plan, True
 
+    @staticmethod
+    def is_bomb_connected(b1, b2):
+        if abs(b1.position[0] - b2.position[0]) <= 2 or abs(b1.position[1] - b2.position[1]) <= 2:
+            return True
+        else:
+            return False
+
     def is_in_danger(self):
         bombs_about_to_explode = []
+        bomb_times = []
         danger_zone = []
-        for b in self.current_bombs:
-            if b.time_to_explode(self.game_state.tick_number) < 10:
+        tick = self.game_state.tick_number
+        if not self.current_bombs:
+            return [], False
+        size_mat = len(self.current_bombs)
+        connect_matrix = np.diag(np.full(size_mat, 1))
+        # Iterate all bombs to check for connections
+        for i,b in enumerate(self.current_bombs):
+            timer_bombs = []
+            bomb_times.append(b.time_to_explode(tick))
+            for n,nb in enumerate(self.current_bombs):
+                if self.is_bomb_connected(b, nb):
+                    connect_matrix[i][n] = 1
+                    bomb_times.append(nb.time_to_explode(tick))
+
+            if min(bomb_times) < BOMB_TICK_THRESHOLD:
                 bombs_about_to_explode.append(b.position)
 
         for b in bombs_about_to_explode:
