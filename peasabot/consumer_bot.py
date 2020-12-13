@@ -14,8 +14,8 @@ from .timers import TimeBomb
 from .utilities import get_opponents
 
 TIMEOUT = 20  # Maximum of positions to calculate in the planning
-MAX_BOMB = 5  # Dont pick up more
-MIN_BOMB = 1  # Dont place bomb
+MAX_BOMB = 5  # Don't pick up more
+MIN_BOMB = 1  # Don't place bomb
 
 class ConsumerBot:
     __slots__ = [
@@ -90,15 +90,6 @@ class ConsumerBot:
                 self.current_bombs = new_bombs + stable_bombs
         else:
             self.current_bombs = []
-
-    def get_cross_tiles(self, tile: Tuple[int, int]) -> List[Tuple[int, int]]:
-        """ From a given tile outputs the neighbour tiles in the 4 directions """
-        new_tile_r = (tile[0] - 1, tile[1])
-        new_tile_u = (tile[0], tile[1] - 1)
-        new_tile_l = (tile[0] + 1, tile[1])
-        new_tile_d = (tile[0], tile[1] + 1)
-        list_tiles = [new_tile_r, new_tile_u, new_tile_l, new_tile_d]
-        return list_tiles
 
     def get_closest_ammo(self):
         distance = 999  # here check with the value of the no possible from the value_at_point
@@ -309,6 +300,16 @@ class ConsumerBot:
                 action = random.choice(self.actions)
 
         return action
+
+    @staticmethod
+    def get_cross_tiles(tile: Tuple[int, int]) -> List[Tuple[int, int]]:
+        """ From a given tile outputs the neighbour tiles in the 4 directions """
+        new_tile_r = (tile[0] - 1, tile[1])
+        new_tile_u = (tile[0], tile[1] - 1)
+        new_tile_l = (tile[0] + 1, tile[1])
+        new_tile_d = (tile[0], tile[1] + 1)
+        list_tiles = [new_tile_r, new_tile_u, new_tile_l, new_tile_d]
+        return list_tiles
 
     @staticmethod
     def print_map(game_state):
