@@ -48,8 +48,8 @@ def main():
             print(
                 "Error: Only a single agent entry per team is allowed.\n"
                 f"You have specified {n_agents} agent modules.\n"
-                "Please chose only one you wish submit and try again.\n"
-                , file=sys.stderr)
+                "Please chose only one you wish submit and try again.\n",
+                file=sys.stderr)
             sys.exit(1)
 
         sys.exit(0)
@@ -76,7 +76,6 @@ def main():
 
     # We done here, all good.
     sys.exit(0)
-
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ from coderone.dungeon.agent import GameState, PlayerState
 from .map_prep import DistanceMap, BombMap, FreedomMap
 
 
-class agent():
+class Agent():
     """ Agent bot."""
     def __init__(self) -> None:
         self.actions = ['', 'u', 'd', 'l', 'r', 'p']

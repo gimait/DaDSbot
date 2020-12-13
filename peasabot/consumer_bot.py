@@ -1,13 +1,21 @@
+"""
+Consumer bot
+"""
+
 import random
+
 import numpy as np
+
 from .utilities import get_opponents
-TIMEOUT = 20 # Maximum of positions to calculate in the planning
+
+TIMEOUT = 20  # Maximum of positions to calculate in the planning
+
 
 class Consumer_bot():
 
     def update_state(self, game_state, player_state):
         ########################
-        ###     AGENT STATE  ###
+        # ##   AGENT STATE  ## #
         ########################
 
         # store some information about the environment
@@ -34,10 +42,8 @@ class Consumer_bot():
         # get list of empty tiles around us
         self.empty_tiles = self.get_empty_tiles(self.surrounding_tiles)
 
-
-
         ########################
-        ###     HELPERS      ###
+        # ##    HELPERS     ## #
         ########################
 
     def manhattan_distance(self, start, end):
@@ -71,7 +77,6 @@ class Consumer_bot():
         # (i.e. [(x1,y1), (x2,y2),...])
         # as long as they do not cross the edge of the map
 
-
     def get_surrounding_tiles(self, location):
         # find all the surrounding tiles relative to us
         # location[0] = col index; location[1] = row index
@@ -99,7 +104,6 @@ class Consumer_bot():
         # given a list of tiles
         # return the ones which are actually empty
 
-
     def get_empty_tiles(self, tiles):
         # empty list to store our empty tiles
         empty_tiles = []
@@ -113,7 +117,6 @@ class Consumer_bot():
 
         # given a list of tiles and bombs
         # find the tile that's safest to move to
-
 
     def get_safest_tile(self, tiles, bombs):
         # which bomb is closest to us?
@@ -141,10 +144,8 @@ class Consumer_bot():
 
         # given an adjacent tile location, move us there
 
-
     def move_to_tile(self, location, tile):
-
-        actions = ['', 'u', 'd', 'l', 'r', 'p']
+        # actions = ['', 'u', 'd', 'l', 'r', 'p']
         print(f"my tile: {tile}")
 
         # see where the tile is relative to our current location
@@ -164,9 +165,9 @@ class Consumer_bot():
 
         return action
 
-
-    # print the game map as an array using numpy
+    @staticmethod
     def print_map(game_state):
+        """ Print the game map as an array using numpy """
         cols = game_state.size[0]
         rows = game_state.size[1]
 
@@ -182,16 +183,14 @@ class Consumer_bot():
 
         return game_map
 
-
     def get_cross_tiles(self, tile):
-        ''' From a given tile outputs the neighbour tiles in the 4 directions  '''
+        """ From a given tile outputs the neighbour tiles in the 4 directions """
         new_tile_r = (tile[0] - 1, tile[1])
         new_tile_u = (tile[0], tile[1] - 1)
         new_tile_l = (tile[0] + 1, tile[1])
         new_tile_d = (tile[0], tile[1] + 1)
         list_tiles = [new_tile_r, new_tile_u, new_tile_l, new_tile_d]
-        return(list_tiles)
-
+        return list_tiles
 
     def get_closest_ammo(self):
         distance = 999  # here check with the value of the no possible from the distance_to_point
@@ -229,7 +228,8 @@ class Consumer_bot():
             weight = np.array([])
             # Movements
             list_tiles = self.get_cross_tiles(tile)
-            (new_tile_r, new_tile_u, new_tile_l, new_tile_d) = (list_tiles[0], list_tiles[1], list_tiles[2], list_tiles[3])
+            (new_tile_r, new_tile_u, new_tile_l, new_tile_d) = (list_tiles[0], list_tiles[1],
+                                                                list_tiles[2], list_tiles[3])
             if self.game_state.is_in_bounds(new_tile_r) and self.map_representation.distance_to_point(new_tile_r) > 0:
                 moves = np.append(moves, 'r')
                 weight = np.append(weight, self.map_representation.distance_to_point(new_tile_r))
@@ -268,7 +268,6 @@ class Consumer_bot():
                 break
         return plan
 
-
     def next_move_killer(self):
 
         if self.substrategy == 1:
@@ -286,7 +285,7 @@ class Consumer_bot():
                 self.substrategy = 1
             # Go towards the closer player
             tiles_list = []
-            for opponent_tile in get_opponents( self.player_state.id, self.game_state._players):
+            for opponent_tile in get_opponents(self.player_state.id, self.game_state._players):
                 t = self.get_cross_tiles(opponent_tile)
                 tiles_list = tiles_list + t
             if self.player_state.location in tiles_list:
@@ -295,19 +294,15 @@ class Consumer_bot():
             bomb_tile = self.evaluate_bomb(tiles_list)
             if bomb_tile:
                 plan = self.plan_to_tile(bomb_tile)
-                plan.insert(0,'p')
+                plan.insert(0, 'p')
                 return (plan)
 
-        return [''] #[random.choice(self.actions)]
-
+        return ['']  # [random.choice(self.actions)]
 
     def next_move_bombAvoider(self, game_state, player_state):
-        """
-        This method is called each time the agent is required to choose an action
-        """
-
+        """ Call each time the agent is required to choose an action """
         ########################
-        ###    VARIABLES     ###
+        # ##   VARIABLES    ## #
         ########################
 
         # if I'm on a bomb, I should probably move
