@@ -1,7 +1,8 @@
 import random
 import numpy as np
+from .utilities import get_opponents
+TIMEOUT = 20 # Maximum of positions to calculate in the planning
 
-TIMEOUT = 10 # Maximum of positions to calculate in the planning
 class Consumer_bot():
 
     def update_state(self, game_state, player_state):
@@ -32,6 +33,7 @@ class Consumer_bot():
 
         # get list of empty tiles around us
         self.empty_tiles = self.get_empty_tiles(self.surrounding_tiles)
+
 
 
         ########################
@@ -181,6 +183,16 @@ class Consumer_bot():
         return game_map
 
 
+    def get_cross_tiles(self, tile):
+        ''' From a given tile outputs the neighbour tiles in the 4 directions  '''
+        new_tile_r = (tile[0] - 1, tile[1])
+        new_tile_u = (tile[0], tile[1] - 1)
+        new_tile_l = (tile[0] + 1, tile[1])
+        new_tile_d = (tile[0], tile[1] + 1)
+        list_tiles = [new_tile_r, new_tile_u, new_tile_l, new_tile_d]
+        return(list_tiles)
+
+
     def get_closest_ammo(self):
         distance = 999  # here check with the value of the no possible from the distance_to_point
         tile = None
@@ -191,6 +203,20 @@ class Consumer_bot():
                 tile = ammo_tile
         return tile
 
+    def evaluate_bomb(self, tiles_list):
+        # Input a list of tiles to evaluate Outputs the best tile to place a bomb
+        # First it only considers the closest distance if any
+        weight = np.array([])
+        tlist = ([t for t in tiles_list if self.game_state.is_in_bounds(t)])
+        tnplist = np.array(tlist)
+        if not tlist:
+            return([])
+        for tiles in tlist:
+            self.map_representation.distance_to_point(tiles)
+            weight = np.append(weight, self.map_representation.distance_to_point(tiles))
+        index = np.where(weight == np.amin(weight))
+        tile = (tnplist[index].tolist())[-1]
+        return tile
 
     def plan_to_tile(self, goal_tile):
         plan = []
@@ -202,10 +228,8 @@ class Consumer_bot():
             moves = np.array([])
             weight = np.array([])
             # Movements
-            new_tile_r = (tile[0] - 1, tile[1])
-            new_tile_u = (tile[0], tile[1] - 1)
-            new_tile_l = (tile[0] + 1, tile[1])
-            new_tile_d = (tile[0], tile[1] + 1)
+            list_tiles = self.get_cross_tiles(tile)
+            (new_tile_r, new_tile_u, new_tile_l, new_tile_d) = (list_tiles[0], list_tiles[1], list_tiles[2], list_tiles[3])
             if self.game_state.is_in_bounds(new_tile_r) and self.map_representation.distance_to_point(new_tile_r) > 0:
                 moves = np.append(moves, 'r')
                 weight = np.append(weight, self.map_representation.distance_to_point(new_tile_r))
@@ -223,6 +247,9 @@ class Consumer_bot():
                 weight = np.append(weight, self.map_representation.distance_to_point(new_tile_d))
 
             # minimum value
+            if weight.size == 0:
+                return([''])
+
             index = np.where(weight == np.amin(weight))
             movement = (moves[index].tolist())[-1]
             plan.append(movement)
@@ -243,18 +270,35 @@ class Consumer_bot():
 
 
     def next_move_killer(self):
-        # Pick up bomb
-        ammo_tile = self.get_closest_ammo()
-        if ammo_tile is not None and self.map_representation.distance_to_point(ammo_tile) > 0:
-            plan = self.plan_to_tile(ammo_tile)
-            return(plan) #if plan:
 
-#       Go towards the closer player
-        # Check closes tile in the cross of the enemy and move
-#        if self.distance_to_point(player2) is available:
-#            return(plan_movements(self.distance_to_point(player2)))
+        if self.substrategy == 1:
+            # Pick up bombS
+            ammo_tile = self.get_closest_ammo()
+            if ammo_tile is not None and self.map_representation.distance_to_point(ammo_tile) > 0:
+                plan = self.plan_to_tile(ammo_tile)
+                return(plan)
+            else:
+                self.substrategy = 2
 
-        return ['']#[random.choice(self.actions)]
+        if self.substrategy == 2:
+            # Harassment and place
+            if self.player_state.ammo <= 1:
+                self.substrategy = 1
+            # Go towards the closer player
+            tiles_list = []
+            for opponent_tile in get_opponents( self.player_state.id, self.game_state._players):
+                t = self.get_cross_tiles(opponent_tile)
+                tiles_list = tiles_list + t
+            if self.player_state.location in tiles_list:
+                self.substrategy = 1
+                return(['p'])
+            bomb_tile = self.evaluate_bomb(tiles_list)
+            if bomb_tile:
+                plan = self.plan_to_tile(bomb_tile)
+                plan.insert(0,'p')
+                return (plan)
+
+        return [''] #[random.choice(self.actions)]
 
 
     def next_move_bombAvoider(self, game_state, player_state):

@@ -4,7 +4,7 @@ Our peasant bot.
 import numpy as np
 from coderone.dungeon.agent import GameState, PlayerState
 from .map_prep import DistanceMap
-from consumer_bot import Consumer_bot
+from .consumer_bot import Consumer_bot
 
 class agent(Consumer_bot):
     """ Agent bot."""
@@ -13,6 +13,7 @@ class agent(Consumer_bot):
         self.map_representation = DistanceMap((9, 11))
         self.planned_actions = []
         self.full_map_prev = None
+        self.substrategy = 1
 
         # Attributes updated in the tick
         #self.cols #self.rows               Map Size
@@ -30,7 +31,7 @@ class agent(Consumer_bot):
 
     def next_move(self, game_state: GameState, player_state: PlayerState):
         self.update_state(game_state, player_state)
-        self.map_representation.update(game_state, player_state)
+        self.map_representation.update(game_state, player_state.location, player_state.id)
 
         updated_map = (self.full_map_prev == self.print_map if self.full_map_prev is not None else True)
         # If the map is not updated dont change the plan (elif)
