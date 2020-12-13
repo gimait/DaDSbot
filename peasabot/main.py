@@ -37,6 +37,9 @@ def main():
     parser.add_argument('--config', type=str,
                         default=None,
                         help='path to the custom config file')
+    parser.add_argument('--train', action='store_true',
+                        default=False,
+                        help='training')
 
     parser.add_argument("agents", nargs="+", help="agent module")
 
@@ -53,6 +56,9 @@ def main():
             sys.exit(1)
 
         sys.exit(0)
+
+    if args.train:  # Opengl fails otherwise after running first game
+        args.headless = True
 
     if len(args.agents) < 2 and (args.headless or not args.interactive):
         print("At least 2 agents must be provided in the match mode. Exiting", file=sys.stderr)

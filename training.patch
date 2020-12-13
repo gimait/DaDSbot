@@ -1,0 +1,62 @@
+coderone/dungeon/main.py
+188,240d187
+< def run_training(agent_modules, player_names, config=None, recorder=None, watch=False):
+< 	# Create a new game
+< 	row_count = config.get('rows')
+< 	column_count = config.get('columns')
+< 	iteration_limit = config.get('max_iterations')
+< 	is_interactive = config.get('interactive')
+< 
+< 	# Load agent modules
+< 	with ExitStack() as stack:
+< 		agents = __load_agent_drivers(stack, agent_modules, watch=watch, config=config)
+< 		if not agents:
+< 			return None  # Exiting with an error, no contest
+< 
+< 		# Add all agents to the game
+< 		names_len = len(player_names) if player_names else 0
+< 		agents_l = []
+< 		for i, agent_driver in enumerate(agents):
+< 			agents_l.append([agent_driver.agent(), player_names[i] if i < names_len else agent_driver.name])
+< 
+< 		for i in range(2):
+< 			game = Game(row_count=row_count, column_count=column_count, max_iterations=iteration_limit, recorder=recorder)
+< 
+< 
+< 			for a in agents_l:
+< 				game.add_agent(a[0], a[1])
+< 	
+< 			# Add a player for the user if running in interactive mode or configured interactive
+< 			user_pid = game.add_player("Player") if is_interactive else None
+< 
+< 			game.generate_map()
+< 
+< 			tick_step = config.get('tick_step')
+< 			if config.get('headless'):
+< 				from .headless_client import Client
+< 
+< 				client = Client(game=game, config=config)
+< 				client.run(tick_step)
+< 			else:
+< 				if config.get('hack'):
+< 					from .hack_client import Client
+< 					screen_width =  80
+< 					screen_height = 24
+< 				else:
+< 					from .arcade_client import Client, WIDTH, HEIGHT, PADDING
+< 				
+< 					screen_width =  PADDING[0]*2 + WIDTH * 12
+< 					screen_height = PADDING[1]*3 + HEIGHT * 10
+< 
+< 				window = Client(width=screen_width, height=screen_height, title=SCREEN_TITLE, game=game, config=config, interactive=is_interactive, user_pid=user_pid)
+< 				window.run(tick_step)
+< 
+< 		# Announce game winner and exit
+< 		return game.stats
+259,262c206
+< 		if args.train:
+< 			return run_training(agent_modules=agents, player_names=players, config=config, recorder=recorder, watch=watch)
+< 		else:
+< 			return run(agent_modules=agents, player_names=players, config=config, recorder=recorder, watch=watch)
+---
+> 		return run(agent_modules=agents, player_names=players, config=config, recorder=recorder, watch=watch)

@@ -15,7 +15,8 @@ import numpy as np
 import torch
 
 from .memory_buffer import MemoryBuffer, ShortTermMemoryBuffer
-from DaDSbot.misc.plots import plot_graph
+from coderone.dungeon.agent import GameState, PlayerState
+# from DaDSbot.misc.plots import plot_graph
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -76,21 +77,25 @@ class AgentNN(torch.nn.Module):
 
 class GameQLearner:
     """ Learning algorithm. """
-    def __init__(self, player_num, env, plotting=False):
-        self.name = "aibot_{}".format(player_num)
+    def __init__(self, player_num, plotting=False):
+        self.name = "aibot"
         self.player_num = player_num - 1
-        self.env = env
-        self.plotting = plotting
+        # self.env = env
+        # self.plotting = plotting
         ######################
         # Network definition
         # Agent in -> current state = map (5x7) + bombs (2 x 2) + players (2 x(pos + prev pos + score) = 10) + turn
         # Agent outD_in -> expected scores for next possible actions (move, stay or place bomb = 6)
+        ACTIONS_DICT = ['', 'u', 'd', 'l', 'r', 'p']
+        cols, rows = 10, 10
         self.stm_buffer_size = 1
-        self.n_bombs = 2
-        self.target_net = AgentNN((8 + self.n_bombs + env.cols * env.rows) * self.stm_buffer_size,
-                                  len(env.ACTIONS_DICT)).to(device)
-        self.policy_net = AgentNN((8 + self.n_bombs + env.cols * env.rows) * self.stm_buffer_size,
-                                  len(env.ACTIONS_DICT)).to(device)
+        # self.n_bombs = 2
+        self.target_net = AgentNN((cols * rows) * self.stm_buffer_size,
+                                  len(ACTIONS_DICT)).to(device)
+        self.policy_net = AgentNN((cols * rows) * self.stm_buffer_size,
+                                  len(ACTIONS_DICT)).to(device)
+
+        print("AMUNICIONNNNNNN")
         if os.path.isfile(self.name + ".pt"):
             self.policy_net.load_state_dict(torch.load(self.name + ".pt"))
         self.target_net.load_state_dict(self.policy_net.state_dict())
@@ -131,24 +136,24 @@ class GameQLearner:
         self.all_loss = []
         self.game_idx = []
 
-    def give_next_move(self, solid_state):
+    def give_next_move(self, game_state: GameState, player_state: PlayerState):
         '''
         This method is called each time the player needs to choose an
         actionlearning_thread.start()
         solid_state: is a dictionary containing all the information about the board
         '''
 
-        self.board = solid_state["board"]
-        self.done = solid_state["done"]
-        self.bombs = solid_state["bombs"]
-        self.turn = solid_state["turn"]
-        self.player = solid_state["players"][self.player_num]
-        enemy = solid_state["players"][self.player_num - 1]
+        self.board = game_state.bombs   #todo
+        self.done = game_state.is_over
+        self.bombs = game_state.bombs
+        # self.turn = game_state.
+        self.player = player_state
+        enemy = game_state.opponents
 
         # In first iteration, initialize stm
         full_state = np.concatenate((np.array(self.player.position),
                                      np.array(self.player.prev_position),
-                                     np.array(enemy.position),
+                                     np.array(enemy),
                                      np.array(enemy.prev_position),
                                      self.bomb_to_timer_array(self.bombs),
                                      np.asarray(self.board).reshape(-1)))
@@ -177,7 +182,7 @@ class GameQLearner:
                     self.bombs_placed += 1
         else:
             player = random.choice(self.players)
-            action = player.give_next_move(solid_state)
+            # action = player.give_next_move(solid_state)
 
         #############################
         self.last_action = action
@@ -185,11 +190,11 @@ class GameQLearner:
 
         return action
 
-    def bomb_to_timer_array(self, bombs):
-        out = np.array([-1 for _ in range(self.n_bombs)])
-        for b in bombs:
-            out[b.owned_by] = b.timer
-        return out
+    # def bomb_to_timer_array(self, bombs):
+    #     out = np.array([-1 for _ in range(self.n_bombs)])
+    #     for b in bombs:
+    #         out[b.owned_by] = b.timer
+    #     return out
 
     def is_done(self, board, players):
         self.board = board
@@ -220,7 +225,7 @@ class GameQLearner:
             self.all_loss += [self.running_loss]
             self.game_idx += [self.game]
 
-            plot_graph(self.game_idx, self.all_scores, self.all_bombs, self.all_idles)
+            # plot_graph(self.game_idx, self.all_scores, self.all_bombs, self.all_idles)
 
             if self.game % 1000000 == 0:
                 torch.save(self.target_net.state_dict(), 'model.weights')
@@ -239,8 +244,8 @@ class GameQLearner:
         if self.game % TARGET_UPDATE == 0:
             self.target_net.load_state_dict(self.policy_net.state_dict())
 
-        if self.game % 10000 == 0:
-            self.target_net.save_model(self.name + ".pt")
+        # if self.game % 10000 == 0:
+        #     self.target_net.save_model(self.name + ".pt")
 
         self.reset()
 
