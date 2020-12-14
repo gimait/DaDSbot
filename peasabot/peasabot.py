@@ -4,6 +4,7 @@ Our peasant bot.
 from coderone.dungeon.agent import GameState, PlayerState
 
 from .consumer_bot import ConsumerBot
+import time
 
 
 class Agent(ConsumerBot):
@@ -12,6 +13,7 @@ class Agent(ConsumerBot):
         super().__init__((12, 10))
 
     def next_move(self, game_state: GameState, player_state: PlayerState):
+        t0 = time.perf_counter()
         self.update_state(game_state, player_state)
         self.map_representation.update(game_state, player_state.location, player_state.id)
         self.free_map.update(game_state, player_state.location, player_state.id)
@@ -32,6 +34,9 @@ class Agent(ConsumerBot):
         self.full_map_prev = full_map  # Update the map for checking if change in the next tick
         self.last_move = action
 
+        dt = time.perf_counter() - t0
+        if dt > 0.075:
+            print("Cuidao!! {}".format(dt))
         return action
 
     def reset(self):

@@ -233,7 +233,7 @@ class BombAreaMap(GrMap, TimeBomb):
         for c in self._idx_cross:
             affected_tile = (tile[0] + c[0], tile[1] + c[1])
             if self.size[0] > affected_tile[0] >= 0 and self.size[1] > affected_tile[1] >= 0:
-                self._map[affected_tile] = 1
+                self._map[affected_tile] = -1
 
 
 def gen_manhattan_map(base_size: Tuple[int, int]) -> np.array:

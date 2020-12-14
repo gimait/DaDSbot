@@ -77,15 +77,18 @@ class ConsumerBot:
     def update_bombs(self, game_state):
         if game_state.bombs:
             new_bombs = []
+            if not self.current_bombs:
+                self.current_bombs = [BombAreaMap(size=self.size,
+                                                  position=game_state.bombs[0], step=game_state.tick_number)]
             for cb in self.current_bombs:
                 for b in game_state.bombs:
-                    if not cb.update():
+                    if not cb.update(b):
                         new_bombs.append(BombAreaMap(size=self.size, position=b, step=game_state.tick_number))
             self.current_bombs += new_bombs
             to_del = []
-            for i in range(len(self.current_bombs)):
+            for i in range(1, len(self.current_bombs)):
                 for j in range(i, len(self.current_bombs)):
-                    if self.current_bombs[i].update(self.current_bombs[j]):
+                    if self.current_bombs[i - 1].update(self.current_bombs[j].position):
                         to_del.append(j)
             self.current_bombs = [bomb_map for i, bomb_map in enumerate(self.current_bombs) if i not in to_del]
         else:
@@ -124,13 +127,12 @@ class ConsumerBot:
         tile = (tnplist[index].tolist())[-1]
         return tile
 
-    def path_to_safest_area(self, danger_zone: Optional[List[Tuple[int, int]]]):
+    def path_to_safest_area(self, danger_zone: Optional[BombAreaMap]):
         # take out unsafe tiles from free_map:
-        for tile in danger_zone:
-            if tile[0] >= 0 and tile[1] >= 0 and tile[0] < self.free_map.size[0] and tile[1] < self.free_map.size[1]:
-                self.free_map._map[tile] = 0
-        safety_map = np.multiply(self.free_map._map, self.map_representation._map)
-
+        if danger_zone is not None:
+            safety_map = np.multiply(np.multiply(self.free_map._map, self.map_representation._map), danger_zone)
+        else:
+            safety_map = np.multiply(self.free_map._map, self.map_representation._map)
         safest_tile = np.unravel_index(safety_map.argmax(), safety_map.shape)
 
         return self.plan_to_tile(safest_tile)
@@ -197,31 +199,16 @@ class ConsumerBot:
             return False
 
     def is_in_danger(self):
-        bombs_about_to_explode = []
-        bomb_times = []
-        danger_zone = []
-        tick = self.game_state.tick_number
         if not self.current_bombs:
-            return [], False
-        size_mat = len(self.current_bombs)
-        connect_matrix = np.diag(np.full(size_mat, 1))
-        # Iterate all bombs to check for connections
-        for i, b in enumerate(self.current_bombs):
-            timer_bombs = []
-            bomb_times.append(b.time_to_explode(tick))
-            for n,nb in enumerate(self.current_bombs):
-                if self.is_bomb_connected(b, nb):
-                    connect_matrix[i][n] = 1
-                    bomb_times.append(nb.time_to_explode(tick))
+            return None, False
 
-            if min(bomb_times) < BOMB_TICK_THRESHOLD:
-                bombs_about_to_explode.append(b.position)
+        status = False
+        danger_zone = np.ones(self.size)
+        for bomb in self.current_bombs:
+            if bomb.time_to_explode(self.game_state.tick_number) < BOMB_TICK_THRESHOLD:
+                danger_zone += bomb._map
+                status = True
 
-        for b in bombs_about_to_explode:
-            if abs(b[0] - self.location[0]) <= 2 or abs(b[1] - self.location[1]) <= 2:
-                danger_zone = danger_zone + [b, (b[0] - 2, b[1]), (b[0] - 1, b[1]), (b[0] + 2, b[1]), (b[0] + 1, b[1]),
-                               (b[0], b[1] - 2), (b[0], b[1] - 1), (b[0], b[1] + 2), (b[0], b[1] + 1)]
-        status = (True if danger_zone else False)
         return danger_zone, status
 
     def is_ammo_avail(self):
