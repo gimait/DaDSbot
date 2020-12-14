@@ -285,18 +285,21 @@ class ConsumerBot:
 
         future_pos = ()
         if step == 'd':
-            future_pos = (self.location[0], self.location[1] + 1)
-        elif step == 'l':
-            future_pos = (self.location[0] + 1, self.location[1])
-        elif step == 'u':
             future_pos = (self.location[0], self.location[1] - 1)
         elif step == 'l':
             future_pos = (self.location[0] - 1, self.location[1])
+        elif step == 'u':
+            future_pos = (self.location[0], self.location[1] + 1)
+        elif step == 'r':
+            future_pos = (self.location[0] + 1, self.location[1])
         else:
             return True
 
-        if self.current_bombs[0].time_to_explode(self.game_state.tick_number) == 1 and \
-           self.current_bombs[0]._map[future_pos] < 0:
+        if not self.game_state.is_in_bounds(future_pos):
+            return False
+
+        tte = self.current_bombs[0].time_to_explode(self.game_state.tick_number)
+        if tte <= 2 and self.current_bombs[0]._map[future_pos] < 0:
             return False
         return True
 
