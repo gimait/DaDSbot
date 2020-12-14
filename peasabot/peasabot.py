@@ -25,11 +25,11 @@ class Agent(ConsumerBot):
             self.planned_actions = self.next_move_killer()
         elif updated_map:
             self.planned_actions = self.next_move_killer()
-        else: # Map is not updated and there are planned actions
+        else:  # Map is not updated and there are planned actions
             pass
         action = (self.planned_actions.pop() if self.planned_actions else '')
 
-        self.full_map_prev = full_map # Update the map for checking if change in the next tick
+        self.full_map_prev = full_map  # Update the map for checking if change in the next tick
         self.last_move = action
 
         return action

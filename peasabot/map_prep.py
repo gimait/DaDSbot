@@ -53,6 +53,8 @@ class DistanceMap(GrMap):
     def __init__(self, map_size: Tuple[int, int]) -> None:
         super().__init__(map_size)
         self.accessible_area = 0
+        self.distance_penalty_map = []
+        self.accessible_area_mask = []
 
     def _initialize(self) -> np.array:
         # initialize distance map the first time we get one:
@@ -68,18 +70,24 @@ class DistanceMap(GrMap):
         for player in get_opponents(self.player_id, self.state._players):
             basemap[player]
         # Run basic distance with dilation operation
-        self._map, self.accessible_area = self._calculate_steps(basemap, self.player_pos)
+        (self.accessible_area, self._map,
+         self.distance_penalty_map, self.accessible_area_mask) = self._calculate_steps(basemap, self.player_pos)
 
-    def _calculate_steps(self, _map: np.array, center: Tuple[int, int]) -> np.array:
+    def _calculate_steps(self, base_map: np.array, center: Tuple[int, int]) -> Tuple[int, np.array, np.array, np.array]:
         """ Expand value from center.
 
             Map expects negative values for blocks and zero for free spots.
         """
-        _map[center] = 0.1
+        inv_map = np.zeros(base_map.shape)
+        mask_map = np.zeros(base_map.shape)
+        base_map[center] = 0.1
+        inv_map[center] = 0.1
+        mask_map[center] = 1
+
         area = 1
         done = False
         # Add borders of map:
-        ext_map = np.vstack([self.u_border, _map, self.u_border])
+        ext_map = np.vstack([self.u_border, base_map, self.u_border])
         ext_map = np.hstack([self.v_border, ext_map, self.v_border])
 
         while not done:
@@ -99,14 +107,16 @@ class DistanceMap(GrMap):
                         if visible:
                             done = False
                             incr = 1 + min(visible)
-                            _map[u - 1, v - 1] = incr
+                            base_map[u - 1, v - 1] = incr
+                            inv_map[u - 1, v - 1] = 1 / incr
+                            mask_map[u - 1, v - 1] = 1
                             ext_map[u, v] = incr
                             area += 1
 
-        for u in range(_map.shape[0]):
-            for v in range(_map.shape[1]):
-                _map[u, v] = max(0, _map[u, v])
-        return _map, area
+        for u in range(base_map.shape[0]):
+            for v in range(base_map.shape[1]):
+                base_map[u, v] = max(0, base_map[u, v])
+        return area, base_map, inv_map, mask_map
 
 
 class BombMap(GrMap):

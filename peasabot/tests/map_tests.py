@@ -30,6 +30,10 @@ class TestMapProcessing(unittest.TestCase):
 
         dm.update(state=game_state, player_pos=(1, 5), player_id=0)
 
+        print(dm._map)
+        print(dm.distance_penalty_map)
+        print(dm.accessible_area_mask)
+
         # Check different points
         self.assertAlmostEquals(dm.value_at_point((0, 3)), 13.1)
         self.assertAlmostEquals(dm.value_at_point((4, 0)), 8.1)
