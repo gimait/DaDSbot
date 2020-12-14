@@ -8,10 +8,11 @@ from coderone.dungeon.agent import GameState
 
 import numpy as np
 
+from .timers import TimeBomb
 from .utilities import get_opponents
 
 
-class GrMap:
+class GrMap(object):
     __slots__ = [
         "_map",
         "u_border",
@@ -23,13 +24,14 @@ class GrMap:
     ]
 
     def __init__(self,
-                 map_size: Tuple[int, int],
+                 size: Tuple[int, int],
                  u_border: Optional[np.array] = None,
-                 v_border: Optional[np.array] = None) -> None:
-        self.size = map_size
+                 v_border: Optional[np.array] = None, **kwargs) -> None:
+        self.size = size
         self._map = []
         self.u_border = np.full(self.size[1], -1) if u_border is None else u_border
         self.v_border = np.full((self.size[0] + 2, 1), -1) if v_border is None else v_border
+        super().__init__(**kwargs)
 
     def _initialize(self):
         self._map = np.zeros(self.state.size)
@@ -50,8 +52,8 @@ class DistanceMap(GrMap):
         "accessible_area",
     ]
 
-    def __init__(self, map_size: Tuple[int, int]) -> None:
-        super().__init__(map_size)
+    def __init__(self, size: Tuple[int, int]) -> None:
+        super().__init__(size)
         self.accessible_area = 0
         self.distance_penalty_map = []
         self.accessible_area_mask = []
@@ -119,12 +121,12 @@ class DistanceMap(GrMap):
         return area, base_map, inv_map, mask_map
 
 
-class BombMap(GrMap):
+class TargetMap(GrMap):
     __slots__ = [
     ]
 
-    def __init__(self, map_size):
-        super().__init__(map_size, v_border=np.full((map_size[0] + 4, 1), -1))
+    def __init__(self, size):
+        super().__init__(size, v_border=np.full((size[0] + 4, 1), -1))
 
     def _initialize(self) -> np.array:
         basemap = np.zeros(self.state.size)
@@ -175,8 +177,8 @@ class FreedomMap(GrMap):
         "mask"
     ]
 
-    def __init__(self, map_size):
-        super().__init__(map_size, u_border=np.full(map_size[1], 0), v_border=np.full((map_size[0] + 2, 1), 0))
+    def __init__(self, size):
+        super().__init__(size, u_border=np.full(size[1], 0), v_border=np.full((size[0] + 2, 1), 0))
         self.mask = np.array(((1, 2, 1), (2, 0, 2), (1, 2, 1)))
 
     def _initialize(self) -> np.array:
@@ -207,6 +209,31 @@ class FreedomMap(GrMap):
                             val += self.mask[i, j] * ext_map[u - 1 + i, v - 1 + j]
                     _map[u - 1, v - 1] = val
         return _map
+
+
+class BombAreaMap(GrMap, TimeBomb):
+    def __init__(self, size, step: int, position: Tuple[int, int]):
+        super().__init__(size=size, v_border=np.full((size[0] + 4, 1), -1), step=step, position=position)
+        self._idx_cross = [(-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0), (0, 2), (0, 1), (0, -1), (0, -2)]
+        self._initialize()
+
+    def _initialize(self):
+        self._map = np.zeros(self.size)
+        self._add_cross_to_map(self.position)
+
+    def update(self, new_bomb: Tuple[int, int]) -> bool:
+        if self._map[new_bomb]:
+            self._add_cross_to_map(new_bomb)
+            return True
+        else:
+            return False
+
+    def _add_cross_to_map(self, tile) -> None:
+        # Add borders of map:
+        for c in self._idx_cross:
+            affected_tile = (tile[0] + c[0], tile[1] + c[1])
+            if self.size[0] > affected_tile[0] >= 0 and self.size[1] > affected_tile[1] >= 0:
+                self._map[affected_tile] = 1
 
 
 def gen_manhattan_map(base_size: Tuple[int, int]) -> np.array:

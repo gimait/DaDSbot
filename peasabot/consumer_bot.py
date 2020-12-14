@@ -9,8 +9,7 @@ from coderone.dungeon.agent import GameState, PlayerState
 
 import numpy as np
 
-from .map_prep import BombMap, DistanceMap, FreedomMap
-from .timers import TimeBomb
+from .map_prep import TargetMap, DistanceMap, FreedomMap, BombAreaMap
 from .utilities import get_opponents, get_surrounding_tiles
 
 TIMEOUT = 20  # Maximum of positions to calculate in the planning
@@ -34,7 +33,7 @@ class ConsumerBot:
 
         self.map_representation = DistanceMap(self.size)
         self.free_map = FreedomMap(self.size)
-        self.bomb_target_map = BombMap(self.size)
+        self.bomb_target_map = TargetMap(self.size)
         self.previous_plan = None
 
         self.planned_actions = []
@@ -73,23 +72,22 @@ class ConsumerBot:
         self.power = player_state.power
 
         # Check new bombs and update timers
-        if game_state.bombs:
-            if not self.current_bombs:
-                for bomb in game_state.bombs:
-                    self.current_bombs.append(TimeBomb(game_state.tick_number, bomb))
-            else:
-                # Update new bombs
-                stable_bomb_pos = []
-                stable_bomb_timer = []
-                for cb in self.current_bombs:
-                    if cb.position in game_state.bombs:
-                        stable_bomb_pos.append(cb.position)
-                        stable_bomb_timer.append(cb)
+        self.update_bombs(game_state)
 
-                new_bombs = [TimeBomb(game_state.tick_number, bomb) for bomb in game_state.bombs
-                             if bomb not in stable_bomb_pos]
-                stable_bombs = [bomb for bomb in self.current_bombs if bomb in stable_bomb_timer]
-                self.current_bombs = new_bombs + stable_bombs
+    def update_bombs(self, game_state):
+        if game_state.bombs:
+            new_bombs = []
+            for cb in self.current_bombs:
+                for b in game_state.bombs:
+                    if not cb.update():
+                        new_bombs.append(BombAreaMap(size=self.size, position=b, step=game_state.tick_number))
+            self.current_bombs += new_bombs
+            to_del = []
+            for i in range(len(self.current_bombs)):
+                for j in range(i, len(self.current_bombs)):
+                    if self.current_bombs[i].update(self.current_bombs[j]):
+                        to_del.append(j)
+            self.current_bombs = [bomb_map for i, bomb_map in enumerate(self.current_bombs) if i not in to_del]
         else:
             self.current_bombs = []
 
@@ -248,7 +246,7 @@ class ConsumerBot:
 
         safest_tile = np.unravel_index(safety_map.argmax(), safety_map.shape)
         plan, conn = self.plan_to_tile(safest_tile)
-        if conn:
+        if conn and plan:
             return plan[-1]
         else:
             return ''

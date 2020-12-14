@@ -5,16 +5,12 @@ Timer classes for bomb explosion and ammo prediction
 from typing import Optional, Tuple
 
 
-class ItemTimer:
+class ItemTimer(object):
     """ This class keeps track of the time that a item has been in the map. """
-    __slots__ = [
-        "position",
-        "placement_step"
-    ]
-
-    def __init__(self, step: int, position: Optional[Tuple[int, int]] = None) -> None:
+    def __init__(self, step: int, position: Optional[Tuple[int, int]] = None, **kwargs) -> None:
         self.position = position
         self.placement_step = step
+        super().__init__(**kwargs)
 
     def lapsed_time(self, current_step):
         return current_step - self.placement_step

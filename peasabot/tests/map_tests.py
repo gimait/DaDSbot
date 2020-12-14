@@ -1,6 +1,6 @@
 import unittest
 
-from peasabot.map_prep import DistanceMap, BombMap, FreedomMap
+from peasabot.map_prep import DistanceMap, TargetMap, FreedomMap
 
 from coderone.dungeon.agent import GameState
 
@@ -53,7 +53,7 @@ class TestMapProcessing(unittest.TestCase):
                                blocks=SAMPLE_BLOCKS,
                                players=SAMPLE_PLAYERS)
 
-        bm = BombMap(MAP_SIZE)
+        bm = TargetMap(MAP_SIZE)
 
         bm.update(state=game_state, player_pos=(1, 5), player_id=0)
 
