@@ -11,12 +11,13 @@ import numpy as np
 
 from .map_prep import BombMap, DistanceMap, FreedomMap
 from .timers import TimeBomb
-from .utilities import get_opponents
+from .utilities import get_opponents, get_surrounding_tiles
 
 TIMEOUT = 20  # Maximum of positions to calculate in the planning
 MAX_BOMB = 5  # Don't pick up more
 MIN_BOMB = 1  # Don't place bomb
 BOMB_TICK_THRESHOLD = 10  # Time for escaping of the bomb
+
 
 class ConsumerBot:
     __slots__ = [
@@ -103,11 +104,11 @@ class ConsumerBot:
         return tile
 
     def get_best_point_for_bomb(self):
-        optimal_points = np.multiply(self.map_representation._map, self.bomb_target_map._map)
+        optimal_points = np.multiply(self.map_representation.distance_penalty_map, self.bomb_target_map._map)
         return np.unravel_index(optimal_points.argmax(), optimal_points.shape)
 
     def get_freedom_tiles(self):
-        freedom_tiles = np.multiply(self.map_representation._map, self.free_map._map)
+        freedom_tiles = np.multiply(self.map_representation.distance_penalty_map, self.free_map._map)
         return np.unravel_index(freedom_tiles.argmax(), freedom_tiles.shape)
 
     def evaluate_bomb(self, tiles_list):
@@ -207,7 +208,7 @@ class ConsumerBot:
         size_mat = len(self.current_bombs)
         connect_matrix = np.diag(np.full(size_mat, 1))
         # Iterate all bombs to check for connections
-        for i,b in enumerate(self.current_bombs):
+        for i, b in enumerate(self.current_bombs):
             timer_bombs = []
             bomb_times.append(b.time_to_explode(tick))
             for n,nb in enumerate(self.current_bombs):
@@ -242,6 +243,16 @@ class ConsumerBot:
         status = (True if bomb_tile else False)
         return bomb_tile, status
 
+    def get_best_blocking_tile(self, tile_list: List[Tuple[int, int]]) -> int:
+        safety_map = np.multiply(self.free_map._map, self.map_representation._map)
+
+        safest_tile = np.unravel_index(safety_map.argmax(), safety_map.shape)
+        plan, conn = self.plan_to_tile(safest_tile)
+        if conn:
+            return plan[-1]
+        else:
+            return ''
+
     def next_move_killer(self):
         # Agent possibilities
         danger_zone, danger_status = self.is_in_danger()
@@ -259,6 +270,8 @@ class ConsumerBot:
             plan, connected = self.plan_to_tile(kill_tiles)
             self.previous_plan = (None if not plan else "kill")
             plan.insert(0, 'p')
+            # After moving the bomb, move towards the spot that locks best the opponent
+            plan.insert(0, self.get_best_blocking_tile(get_surrounding_tiles(self.game_state, self.location)))
         # 4 Place a bomb in a good place if you have bombs
         elif self.previous_plan == "loot" or self.ammo > MIN_BOMB:
             best_point_for_bomb = self.get_best_point_for_bomb()
@@ -271,8 +284,6 @@ class ConsumerBot:
             plan, _ = self.plan_to_tile(free_tile)
 
         return plan
-
-
 
     def next_move_bombAvoider(self, game_state, player_state):
         """ Call each time the agent is required to choose an action """
@@ -342,6 +353,6 @@ class ConsumerBot:
         game_map = []
         for x in range(cols):
             for y in range(rows):
-                game_map.append(( game_state.entity_at((x, y)) if game_state.entity_at((x, y)) is not None else 'f'))
+                game_map.append((game_state.entity_at((x, y)) if game_state.entity_at((x, y)) is not None else 'f'))
 
         return game_map
