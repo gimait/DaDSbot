@@ -33,14 +33,13 @@ class GrMap(object):
         self.v_border = np.full((self.size[0] + 2, 1), -1) if v_border is None else v_border
         super().__init__(**kwargs)
 
-    def _initialize(self):
-        self._map = np.zeros(self.state.size)
+    def _initialize(self, mask: Optional[np.array] = None):
+        self._map = np.zeros(self.state.size) + mask
 
     def update(self, state: GameState, player_pos: Tuple[int, int], player_id: int) -> None:
         self.state = state
         self.player_pos = player_pos
         self.player_id = player_id
-        self._initialize()
 
     def value_at_point(self, point: Tuple[int, int]) -> int:
         return self._map[point]
@@ -58,7 +57,13 @@ class DistanceMap(GrMap):
         self.distance_penalty_map = []
         self.accessible_area_mask = []
 
-    def _initialize(self) -> np.array:
+    def update(self,
+               state: GameState, player_pos: Tuple[int, int], player_id: int,
+               mask: Optional[np.array] = None) -> None:
+        super().update(state, player_pos, player_id)
+        self._initialize(mask)
+
+    def _initialize(self, mask: Optional[np.array] = None) -> None:
         # initialize distance map the first time we get one:
         basemap = np.zeros(self.state.size)
         for block in self.state.indestructible_blocks:
@@ -67,8 +72,11 @@ class DistanceMap(GrMap):
             basemap[block] = -1
         for block in self.state.ore_blocks:
             basemap[block] = -1
-        for bomb in self.state.bombs:
-            basemap[bomb] = -1
+        if mask is not None:
+            basemap += mask - 1
+        else:
+            for bomb in self.state.bombs:
+                basemap[bomb] = -1
         for player in get_opponents(self.player_id, self.state._players):
             basemap[player] = -1
         # Run basic distance with dilation operation
@@ -128,7 +136,13 @@ class TargetMap(GrMap):
     def __init__(self, size):
         super().__init__(size, v_border=np.full((size[0] + 4, 1), -1))
 
-    def _initialize(self) -> np.array:
+    def update(self,
+               state: GameState, player_pos: Tuple[int, int], player_id: int,
+               mask: Optional[np.array] = None) -> None:
+        super().update(state, player_pos, player_id)
+        self._initialize(mask)
+
+    def _initialize(self, mask: Optional[np.array] = None) -> None:
         basemap = np.zeros(self.state.size)
         for block in self.state.ore_blocks:
             basemap[block] = 1
@@ -136,6 +150,8 @@ class TargetMap(GrMap):
             basemap[block] = 1
         for block in self.state.indestructible_blocks:
             basemap[block] = -1
+        if mask is not None:
+            basemap += mask - 1
         self._map = self._get_bomb_ranges(basemap)
 
     def _get_bomb_ranges(self, _map: np.array) -> np.array:
@@ -181,7 +197,13 @@ class FreedomMap(GrMap):
         super().__init__(size, u_border=np.full(size[1], 0), v_border=np.full((size[0] + 2, 1), 0))
         self.mask = np.array(((1, 2, 1), (2, 0, 2), (1, 2, 1)))
 
-    def _initialize(self) -> np.array:
+    def update(self,
+               state: GameState, player_pos: Tuple[int, int], player_id: int,
+               mask: Optional[np.array] = None) -> None:
+        super().update(state, player_pos, player_id)
+        self._initialize(mask)
+
+    def _initialize(self, mask: Optional[np.array] = None) -> None:
         basemap = np.ones(self.state.size)
         for block in self.state.indestructible_blocks:
             basemap[block] = 0
@@ -189,8 +211,11 @@ class FreedomMap(GrMap):
             basemap[block] = 0
         for block in self.state.ore_blocks:
             basemap[block] = 0
-        for bomb in self.state.bombs:
-            basemap[bomb] = -1
+        if mask is not None:
+            basemap += mask - 1
+        else:
+            for bomb in self.state.bombs:
+                basemap[bomb] = -1
         # for player in get_opponents(self.player_id, self.state._players):
         #     basemap[player] = 0
         self._map = self._grad_convolution(basemap)
@@ -215,6 +240,7 @@ class BombAreaMap(GrMap, TimeBomb):
     def __init__(self, size, step: int, position: Tuple[int, int]):
         super().__init__(size=size, v_border=np.full((size[0] + 4, 1), -1), step=step, position=position)
         self._idx_cross = [(-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0), (0, 2), (0, 1), (0, -1), (0, -2)]
+        self.affected_area = 0
         self._initialize()
 
     def _initialize(self):
@@ -228,12 +254,20 @@ class BombAreaMap(GrMap, TimeBomb):
         else:
             return False
 
+    def should_be_avoided(self, tick):
+        if self.time_to_explode(tick) < (self.affected_area / 4):
+            return True
+        else:
+            return False
+
     def _add_cross_to_map(self, tile) -> None:
         # Add borders of map:
         for c in self._idx_cross:
             affected_tile = (tile[0] + c[0], tile[1] + c[1])
-            if self.size[0] > affected_tile[0] >= 0 and self.size[1] > affected_tile[1] >= 0:
+            if self.size[0] > affected_tile[0] >= 0 and self.size[1] > affected_tile[1] >= 0 \
+               and self._map[affected_tile] >= 0:
                 self._map[affected_tile] = -1
+                self.affected_area += 1
 
 
 def gen_manhattan_map(base_size: Tuple[int, int]) -> np.array:

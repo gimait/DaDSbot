@@ -15,9 +15,6 @@ class Agent(ConsumerBot):
     def next_move(self, game_state: GameState, player_state: PlayerState):
         t0 = time.perf_counter()
         self.update_state(game_state, player_state)
-        self.map_representation.update(game_state, player_state.location, player_state.id)
-        self.free_map.update(game_state, player_state.location, player_state.id)
-        self.bomb_target_map.update(game_state, player_state.location, player_state.id)
 
         full_map = self.print_map(game_state)
         updated_map = (self.full_map_prev == full_map if self.full_map_prev is not None else True)

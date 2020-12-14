@@ -9,8 +9,8 @@ from coderone.dungeon.agent import GameState, PlayerState
 
 import numpy as np
 
-from .map_prep import TargetMap, DistanceMap, FreedomMap, BombAreaMap
-from .utilities import get_opponents, get_surrounding_tiles
+from .map_prep import BombAreaMap, DistanceMap, FreedomMap, TargetMap
+from .utilities import get_opponents
 
 TIMEOUT = 20  # Maximum of positions to calculate in the planning
 MAX_BOMB = 5  # Don't pick up more
@@ -76,6 +76,13 @@ class ConsumerBot:
 
         # Check new bombs and update timers
         self.update_bombs(game_state)
+        endangered = (self.current_bombs and self.current_bombs[0].should_be_avoided(self.game_state.tick_number)
+                      and not self.current_bombs[0].value_at_point(self.location))
+        bomb_mask = self.current_bombs[0]._map if endangered else None
+        # Depending on wether we are inside a bomb area or just
+        self.free_map.update(game_state, player_state.location, player_state.id, mask=bomb_mask)
+        self.bomb_target_map.update(game_state, player_state.location, player_state.id)
+        self.map_representation.update(game_state, player_state.location, player_state.id, mask=bomb_mask)
 
     def update_bombs(self, game_state):
         if game_state.bombs:
@@ -97,14 +104,14 @@ class ConsumerBot:
         else:
             self.current_bombs = []
 
-    def get_closest_ammo(self):
+    def get_closest_item(self, item):
         distance = 999  # here check with the value of the no possible from the value_at_point
         tile = None
-        for i, ammo_tile in enumerate(self.game_state.ammo):
-            d2p_ammo = self.map_representation.value_at_point(ammo_tile)
+        for i, item_tile in enumerate(item):
+            d2p_ammo = self.map_representation.value_at_point(item_tile)
             if d2p_ammo != 0 and d2p_ammo < distance:
                 distance = d2p_ammo
-                tile = ammo_tile
+                tile = item_tile
         return tile
 
     def get_best_point_for_bomb(self):
@@ -132,7 +139,21 @@ class ConsumerBot:
     def path_to_safest_area(self, danger_zone: Optional[BombAreaMap] = None):
         # take out unsafe tiles from free_map:
         if danger_zone is not None:
-            safety_map = np.multiply(np.multiply(self.free_map._map, self.map_representation._map), danger_zone)
+            safety_map = np.multiply(danger_zone,
+                                     np.multiply(self.free_map._map,
+                                                 self.map_representation.distance_penalty_map))
+        else:
+            safety_map = np.multiply(self.free_map._map, self.map_representation._map)
+        safest_tile = np.unravel_index(safety_map.argmax(), safety_map.shape)
+
+        return self.plan_to_tile(safest_tile)
+
+    def path_to_freest_area(self, danger_zone: Optional[BombAreaMap] = None):
+        # take out unsafe tiles from free_map:
+        if danger_zone is not None:
+            safety_map = np.multiply(danger_zone,
+                                     np.multiply(self.free_map._map,
+                                                 self.map_representation.accessible_area_mask))
         else:
             safety_map = np.multiply(self.free_map._map, self.map_representation._map)
         safest_tile = np.unravel_index(safety_map.argmax(), safety_map.shape)
@@ -216,12 +237,20 @@ class ConsumerBot:
         return danger_zone, status
 
     def is_ammo_avail(self):
-        ammo_tile = self.get_closest_ammo()
+        ammo_tile = self.get_closest_item(self.game_state.ammo)
         if ammo_tile is not None and self.map_representation.value_at_point(ammo_tile) > 0:
             status = True
         else:
             status = False
         return ammo_tile, status
+
+    def is_treasure_avail(self):
+        treasure_tile = self.get_closest_item(self.game_state.treasure)
+        if treasure_tile is not None and self.map_representation.value_at_point(treasure_tile) > 0:
+            status = True
+        else:
+            status = False
+        return treasure_tile, status
 
     def is_killing_an_option(self):
         tiles_list = []
@@ -246,6 +275,7 @@ class ConsumerBot:
         # Agent possibilities
         danger_zone, danger_status = self.is_in_danger()
         ammo_tile, ammo_status = self.is_ammo_avail()
+        treasure_tile, treasure_status = self.is_treasure_avail()
         kill_tiles, kill_status = self.is_killing_an_option()
 
         # 1 Avoid Danger
@@ -254,21 +284,35 @@ class ConsumerBot:
         # 2 Pick up ammo if less than MAX
         elif ammo_status and self.ammo < MAX_BOMB:
             plan, _ = self.plan_to_tile(ammo_tile)
-        # 3 Plan for killing, finish it if started
+        # 3 Pick up treasures, they are also good
+        elif treasure_status:
+            plan, _ = self.plan_to_tile(treasure_tile)
+        # 4 Plan for killing, finish it if started
         elif (0 < self.free_map._map[self.opponent_tile] < CORNER_THRESH) and \
              (self.previous_plan == "kill" or kill_status):
             plan, connected = self.plan_to_tile(kill_tiles)
             self.previous_plan = (None if not plan else "kill")
             plan.insert(0, 'p')
             # After moving the bomb, move towards the spot that locks best the opponent
-            plan.insert(0, self.get_best_blocking_tile(get_surrounding_tiles(self.game_state, self.location)))
-        # 4 Place a bomb in a good place if you have bombs
+            if danger_zone is not None:
+                danger_zone[self.location] = 0
+            free_area = self.path_to_freest_area(danger_zone)[0]
+            if free_area:
+                plan.insert(0, free_area.pop())
+        # 5 Place a bomb in a good place if you have bombs
         elif self.previous_plan == "loot" or self.ammo > MIN_BOMB:
             best_point_for_bomb = self.get_best_point_for_bomb()
             plan, _ = self.plan_to_tile(best_point_for_bomb)
             self.previous_plan = (None if not plan else "loot")
             plan.insert(0, 'p')
-            plan.insert(0, self.get_best_blocking_tile(get_surrounding_tiles(self.game_state, self.location)))
+            if danger_zone is not None:
+                danger_zone[self.location] = 0
+            free_area = self.path_to_freest_area(danger_zone)[0]
+            if free_area:
+                plan.insert(0, free_area.pop())
+        # 6 If there is still ammo around and we are bored, let's go catch it
+        elif ammo_status:
+            plan, _ = self.plan_to_tile(ammo_tile)
 
         # Last Find a good place to wait
         else:
@@ -295,7 +339,7 @@ class ConsumerBot:
         else:
             return True
 
-        if not self.game_state.is_in_bounds(future_pos):
+        if not self.game_state.is_in_bounds(future_pos) and self.map_representation.accessible_area[future_pos]:
             return False
 
         tte = self.current_bombs[0].time_to_explode(self.game_state.tick_number)
