@@ -16,6 +16,7 @@ TIMEOUT = 20  # Maximum of positions to calculate in the planning
 MAX_BOMB = 5  # Don't pick up more
 MIN_BOMB = 1  # Don't place bomb
 BOMB_TICK_THRESHOLD = 10  # Time for escaping of the bomb
+CORNER_THRESH = 50  # Threshold that indicates when a spot has a very low degree of freedom
 
 
 class ConsumerBot:
@@ -71,6 +72,8 @@ class ConsumerBot:
         self.reward = player_state.reward
         self.power = player_state.power
 
+        self.opponent_tile = get_opponents(self.player_state.id, self.game_state._players)[0]
+
         # Check new bombs and update timers
         self.update_bombs(game_state)
 
@@ -115,17 +118,16 @@ class ConsumerBot:
     def evaluate_bomb(self, tiles_list):
         # Input a list of tiles to evaluate Outputs the best tile to place a bomb
         # First it only considers the closest distance if any better strategy is expected here
-        weight = np.array([])
         tlist = ([t for t in tiles_list if self.game_state.is_in_bounds(t)])
-        tnplist = np.array(tlist)
         if not tlist:
             return([])
-        for tiles in tlist:
-            self.map_representation.value_at_point(tiles)
-            weight = np.append(weight, self.map_representation.value_at_point(tiles))
-        index = np.where(weight == np.amin(weight))
-        tile = (tnplist[index].tolist())[-1]
-        return tile
+        best_tile = ()
+        best_weight = 0
+        for tile in tlist:
+            tile_value = self.map_representation.value_at_point(tile)
+            if tile_value > best_weight:
+                best_tile = tile
+        return best_tile
 
     def path_to_safest_area(self, danger_zone: Optional[BombAreaMap] = None):
         # take out unsafe tiles from free_map:
@@ -138,9 +140,11 @@ class ConsumerBot:
         return self.plan_to_tile(safest_tile)
 
     def plan_to_tile(self, goal_tile: Tuple[int, int]) -> Tuple[List, bool]:
+        if not goal_tile:
+            return [], False
+
         plan = []
         tile = tuple(goal_tile)
-
         if self.map_representation.value_at_point(tile) == 0:
             return plan, False
 
@@ -251,7 +255,8 @@ class ConsumerBot:
         elif ammo_status and self.ammo < MAX_BOMB:
             plan, _ = self.plan_to_tile(ammo_tile)
         # 3 Plan for killing, finish it if started
-        elif False and (self.previous_plan == "kill" or kill_status):
+        elif (0 < self.free_map._map[self.opponent_tile] < CORNER_THRESH) and \
+             (self.previous_plan == "kill" or kill_status):
             plan, connected = self.plan_to_tile(kill_tiles)
             self.previous_plan = (None if not plan else "kill")
             plan.insert(0, 'p')
@@ -262,8 +267,6 @@ class ConsumerBot:
             best_point_for_bomb = self.get_best_point_for_bomb()
             plan, _ = self.plan_to_tile(best_point_for_bomb)
             self.previous_plan = (None if not plan else "loot")
-            if not plan:
-                print('here')
             plan.insert(0, 'p')
             plan.insert(0, self.get_best_blocking_tile(get_surrounding_tiles(self.game_state, self.location)))
 
@@ -293,7 +296,7 @@ class ConsumerBot:
             return True
 
         if self.current_bombs[0].time_to_explode(self.game_state.tick_number) == 1 and \
-           self.current_bombs[0]._map(future_pos) < 0:
+           self.current_bombs[0]._map[future_pos] < 0:
             return False
         return True
 

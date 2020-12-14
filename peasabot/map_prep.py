@@ -190,9 +190,9 @@ class FreedomMap(GrMap):
         for block in self.state.ore_blocks:
             basemap[block] = 0
         for bomb in self.state.bombs:
-            basemap[bomb] = 0
-        for player in get_opponents(self.player_id, self.state._players):
-            basemap[player] = 0
+            basemap[bomb] = -1
+        # for player in get_opponents(self.player_id, self.state._players):
+        #     basemap[player] = 0
         self._map = self._grad_convolution(basemap)
 
     def _grad_convolution(self, _map: np.array) -> np.array:
