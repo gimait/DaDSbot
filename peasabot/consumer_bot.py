@@ -127,7 +127,7 @@ class ConsumerBot:
         tile = (tnplist[index].tolist())[-1]
         return tile
 
-    def path_to_safest_area(self, danger_zone: Optional[BombAreaMap]):
+    def path_to_safest_area(self, danger_zone: Optional[BombAreaMap] = None):
         # take out unsafe tiles from free_map:
         if danger_zone is not None:
             safety_map = np.multiply(np.multiply(self.free_map._map, self.map_representation._map), danger_zone)
@@ -251,7 +251,7 @@ class ConsumerBot:
         elif ammo_status and self.ammo < MAX_BOMB:
             plan, _ = self.plan_to_tile(ammo_tile)
         # 3 Plan for killing, finish it if started
-        elif self.previous_plan == "kill" or kill_status:
+        elif False and (self.previous_plan == "kill" or kill_status):
             plan, connected = self.plan_to_tile(kill_tiles)
             self.previous_plan = (None if not plan else "kill")
             plan.insert(0, 'p')
@@ -262,13 +262,40 @@ class ConsumerBot:
             best_point_for_bomb = self.get_best_point_for_bomb()
             plan, _ = self.plan_to_tile(best_point_for_bomb)
             self.previous_plan = (None if not plan else "loot")
+            if not plan:
+                print('here')
             plan.insert(0, 'p')
+            plan.insert(0, self.get_best_blocking_tile(get_surrounding_tiles(self.game_state, self.location)))
+
         # Last Find a good place to wait
         else:
             free_tile = self.get_freedom_tiles()
             plan, _ = self.plan_to_tile(free_tile)
 
+        if plan and not self.is_step_safe(plan[-1]):
+            return ['']
         return plan
+
+    def is_step_safe(self, step):
+        if not self.current_bombs:
+            return True
+
+        future_pos = ()
+        if step == 'd':
+            future_pos = (self.location[0], self.location[1] + 1)
+        elif step == 'l':
+            future_pos = (self.location[0] + 1, self.location[1])
+        elif step == 'u':
+            future_pos = (self.location[0], self.location[1] - 1)
+        elif step == 'l':
+            future_pos = (self.location[0] - 1, self.location[1])
+        else:
+            return True
+
+        if self.current_bombs[0].time_to_explode(self.game_state.tick_number) == 1 and \
+           self.current_bombs[0]._map(future_pos) < 0:
+            return False
+        return True
 
     def next_move_bombAvoider(self, game_state, player_state):
         """ Call each time the agent is required to choose an action """

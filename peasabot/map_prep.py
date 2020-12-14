@@ -70,7 +70,7 @@ class DistanceMap(GrMap):
         for bomb in self.state.bombs:
             basemap[bomb] = -1
         for player in get_opponents(self.player_id, self.state._players):
-            basemap[player]
+            basemap[player] = -1
         # Run basic distance with dilation operation
         (self.accessible_area, self._map,
          self.distance_penalty_map, self.accessible_area_mask) = self._calculate_steps(basemap, self.player_pos)
@@ -153,22 +153,22 @@ class TargetMap(GrMap):
                     targets = 0
                     if ext_map[u - 1, v] > 0:
                         targets += 1
-                    elif ext_map[u - 2, v] > 0:
+                    elif ext_map[u - 1, v] == 0 and ext_map[u - 2, v] > 0:
                         targets += 1
                     if ext_map[u + 1, v] > 0:
                         targets += 1
-                    elif ext_map[u + 2, v] > 0:
+                    elif ext_map[u + 1, v] == 0 and ext_map[u + 2, v] > 0:
                         targets += 1
                     if ext_map[u, v - 1] > 0:
                         targets += 1
-                    elif ext_map[u, v - 2] > 0:
+                    elif ext_map[u, v - 1] == 0 and ext_map[u, v - 2] > 0:
                         targets += 1
                     if ext_map[u, v + 1] > 0:
                         targets += 1
-                    elif ext_map[u, v + 1] > 0:
+                    elif ext_map[u, v + 1] == 0 and ext_map[u, v + 2] > 0:
                         targets += 1
                     if targets:
-                        _map[u - 2, v - 2] = targets
+                        _map[u - 2, v - 2] = targets * targets
         return _map
 
 
@@ -207,7 +207,7 @@ class FreedomMap(GrMap):
                     for i in range(3):
                         for j in range(3):
                             val += self.mask[i, j] * ext_map[u - 1 + i, v - 1 + j]
-                    _map[u - 1, v - 1] = val
+                    _map[u - 1, v - 1] = val * val
         return _map
 
 
