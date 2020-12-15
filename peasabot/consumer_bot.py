@@ -12,14 +12,6 @@ import numpy as np
 from .map_prep import BombAreaMap, DistanceMap, FreedomMap, TargetMap
 from .utilities import get_opponents
 
-TIMEOUT = 20  # Maximum of positions to calculate in the planning
-MAX_BOMB = 5  # Don't pick up more
-MIN_BOMB = 1  # Don't place bomb
-BOMB_TICK_THRESHOLD = 5  # Time for escaping of the bomb
-CORNER_THRESH = 30  # Threshold that indicates when a spot has a very low degree of freedom
-ATTACK_THRESH = 70
-DANGER_THRESH = 0  # <-- NOT USED
-
 
 class ConsumerBot:
     __slots__ = [
@@ -30,14 +22,14 @@ class ConsumerBot:
         "__dict__"
     ]
 
-    def __init__(self, size) -> None:
+    def __init__(self, size, bomb_tick_threshold) -> None:
         self.actions = ['', 'u', 'd', 'l', 'r', 'p']
         self.size = size
 
         self.map_representation = DistanceMap(self.size)
         self.free_map = FreedomMap(self.size)
         self.bomb_target_map = TargetMap(self.size)
-        self.bomb_management_map = BombAreaMap(self.size, danger_thresh=BOMB_TICK_THRESHOLD)
+        self.bomb_management_map = BombAreaMap(self.size, danger_thresh=bomb_tick_threshold)
         self.previous_plan = None
 
         self.planned_actions = []
@@ -59,7 +51,6 @@ class ConsumerBot:
         ########################
         # ##   AGENT STATE  ## #
         ########################
-
         # store some information about the environment
         # game map is represented in the form (x,y)
         self.cols = game_state.size[0]
@@ -139,8 +130,7 @@ class ConsumerBot:
 
         return self.plan_to_tile(safest_tile)
 
-    def plan_to_tile(self, goal_tile: Tuple[int, int], evacuation = False ) -> Tuple[List, bool]:
-        timeout = TIMEOUT
+    def plan_to_tile(self, goal_tile: Tuple[int, int], timeout = 20, evacuation = False ) -> Tuple[List, bool]:
         tiles = []
         plan = []
         plan_w_bomb_breaks = []
@@ -240,7 +230,7 @@ class ConsumerBot:
         status = (True if bomb_tile else False)
         return bomb_tile, status
 
-    def get_best_blocking_tile(self, tile_list: List[Tuple[int, int]]) -> int:
+    def get_best_blocking_tile(self): #, tile_list: List[Tuple[int, int]]) -> int:
         safety_map = np.multiply(self.free_map._map, self.map_representation._map)
 
         safest_tile = np.unravel_index(safety_map.argmax(), safety_map.shape)
@@ -250,52 +240,6 @@ class ConsumerBot:
         else:
             return ''
 
-    def next_move_killer(self):
-        # Agent possibilities
-        danger_zone, danger_status = self.bomb_management_map.is_in_danger()
-        ammo_tile, ammo_status = self.is_ammo_avail()
-        treasure_tile, treasure_status = self.is_treasure_avail()
-        kill_tiles, kill_status = self.is_killing_an_option()
-
-        # 1 Avoid Danger
-        if danger_status:
-            plan, _ = self.path_to_safest_area(danger_zone)
-        # 2 Pick up ammo if less than MAX
-        elif ammo_status and self.ammo < MAX_BOMB:
-            plan, _ = self.plan_to_tile(ammo_tile)
-        # 3 Pick up treasures, they are also good
-        elif treasure_status:
-            plan, _ = self.plan_to_tile(treasure_tile)
-        # 4 If we finished a plan, get away
-        elif self.previous_plan == "run":
-            d = danger_zone if self.bomb_management_map.last_placed_bomb is None \
-                else danger_zone - self.bomb_management_map.last_placed_bomb._map
-            plan, _ = self.path_to_freest_area(d) # <- change for freest area which multiplies for the accesible_area_mask
-            self.previous_plan = None
-        # 4 Plan for killing, finish it if started
-        elif (0 < self.free_map._map[self.opponent_tile] < ATTACK_THRESH) and \
-             (self.previous_plan == "kill" or kill_status):
-            plan, connected = self.plan_to_tile(kill_tiles)
-            self.previous_plan = (None if not plan else "kill")
-            plan.append('p')
-        # 5 Place a bomb in a good place if you have bombs
-        elif self.previous_plan == "loot" or self.ammo > MIN_BOMB:
-            best_point_for_bomb = self.get_best_point_for_bomb()
-            plan, _ = self.plan_to_tile(best_point_for_bomb)
-            self.previous_plan = (None if not plan else "loot")
-            plan.append('p')
-        # 6 If there is still ammo around and we are bored, let's go catch it
-        elif ammo_status:
-            plan, _ = self.plan_to_tile(ammo_tile)
-
-        # Last Find a good place to wait
-        else:
-            free_tile = self.get_freedom_tiles()
-            plan, _ = self.plan_to_tile(free_tile)
-
-        if plan and not self.is_step_safe(plan[-1]):
-            return ['']
-        return plan
 
     def is_step_safe(self, step):
         if not self.current_bombs:
@@ -320,55 +264,6 @@ class ConsumerBot:
         if tte <= 2 and self.current_bombs[0]._map[future_pos] < 0:
             return False
         return True
-
-    def next_move_bombAvoider(self, game_state, player_state):
-        """ Call each time the agent is required to choose an action """
-        ########################
-        # ##   VARIABLES    ## #
-        ########################
-
-        # if I'm on a bomb, I should probably move
-        if game_state.entity_at(self.location) == 'b':
-
-            print("I'm on a bomb. I'm going to move.")
-
-            if self.empty_tiles:
-                # choose a random free tile to move to
-                random_tile = random.choice(self.empty_tiles)
-                action = self.move_to_tile(self.location, random_tile)
-            else:
-                # if there isn't a free spot to move to, we're probably stuck here
-                action = ''
-
-        # if we're near a bomb, we should also probably move
-        elif self.bombs_in_range:
-
-            print("I'm fleeing.")
-
-            if self.empty_tiles:
-
-                # get the safest tile for us to move to
-                safest_tile = self.get_safest_tile(self.empty_tiles, self.bombs_in_range)
-
-                action = self.move_to_tile(self.location, safest_tile)
-
-            else:
-                action = random.choice(self.actions)
-
-        # if there are no bombs in range
-        else:
-
-            print("I'm placing a bomb")
-
-            # but first, let's check if we have any ammo
-            if self.ammo > 0:
-                # we've got ammo, let's place a bomb
-                action = 'p'
-            else:
-                # no ammo, we'll make random moves until we have ammo
-                action = random.choice(self.actions)
-
-        return action
 
     @staticmethod
     def get_cross_tiles(tile: Tuple[int, int]) -> List[Tuple[int, int]]:
