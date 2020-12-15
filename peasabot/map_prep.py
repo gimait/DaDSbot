@@ -194,7 +194,13 @@ class FreedomMap(GrMap):
 
     def __init__(self, size):
         super().__init__(size, u_border=np.full(size[1], 0), v_border=np.full((size[0] + 2, 1), 0))
-        self.mask = np.array(((1, 2, 1), (2, 0, 2), (1, 2, 1)))
+        self.mask0 = np.array(((0, 2, 0),
+                               (2, 0, 2),
+                               (0, 2, 0)))
+
+        self.mask1 = np.array(((1, 0, 1),
+                               (0, 0, 0),
+                               (1, 0, 1)))
 
     def update(self,
                state: GameState, player_pos: Tuple[int, int], player_id: int,
@@ -227,12 +233,19 @@ class FreedomMap(GrMap):
         for u in range(1, ext_map.shape[0] - 1):
             for v in range(1, ext_map.shape[1] - 1):
                 if ext_map[u, v] == 1:
-                    val = 0
-                    for i in range(3):
-                        for j in range(3):
-                            val += self.mask[i, j] * ext_map[u - 1 + i, v - 1 + j]
+                    val = self._apply_mask(ext_map, (u, v), self.mask0)
+                    if val > 4:
+                        val = self._apply_mask(ext_map, (u, v), self.mask1)
                     _map[u - 1, v - 1] = val * val
         return _map
+
+    @staticmethod
+    def _apply_mask(_map, center, mask):
+        val = 0
+        for i in range(mask.shape[0]):
+            for j in range(mask.shape[1]):
+                val += mask[i, j] * _map[center[0] - 1 + i, center[1] - 1 + j]
+        return val
 
 
 class BombArea(GrMap, TimeBomb):
