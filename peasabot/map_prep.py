@@ -383,6 +383,6 @@ class BombAreaMap(GrMap):
     def get_mask_at_step(self, step: int) -> np.array:
         mask = np.zeros(self.size)
         for bomb in self.bombs:
-            if bomb.time_to_explode(step) == 0:
+            if bomb.time_to_explode(step) <= self.danger_thresh:   ## ??? It was here where you wanted to put it?
                 mask += bomb._map
         return np.where(mask > 0, 0, 1)

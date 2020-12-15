@@ -18,7 +18,7 @@ MIN_BOMB = 1  # Don't place bomb
 BOMB_TICK_THRESHOLD = 0  # Time for escaping of the bomb
 CORNER_THRESH = 30  # Threshold that indicates when a spot has a very low degree of freedom
 ATTACK_THRESH = 70
-DANGER_THRESH = 0
+DANGER_THRESH = 0  # <-- NOT USED
 
 
 class ConsumerBot:
