@@ -15,7 +15,7 @@ from .utilities import get_opponents
 TIMEOUT = 20  # Maximum of positions to calculate in the planning
 MAX_BOMB = 5  # Don't pick up more
 MIN_BOMB = 1  # Don't place bomb
-BOMB_TICK_THRESHOLD = 0  # Time for escaping of the bomb
+BOMB_TICK_THRESHOLD = 5  # Time for escaping of the bomb
 CORNER_THRESH = 30  # Threshold that indicates when a spot has a very low degree of freedom
 ATTACK_THRESH = 70
 DANGER_THRESH = 0  # <-- NOT USED
@@ -116,7 +116,7 @@ class ConsumerBot:
         return best_tile
 
     def path_to_safest_area(self, danger_zone: Optional[BombAreaMap] = None):
-        # take out unsafe tiles from free_map:
+        # take out unsafe tiles from free_map. Choose the closest free_area
         if danger_zone is not None:
             safety_map = np.multiply(danger_zone,
                                      np.multiply(self.free_map._map,
@@ -125,10 +125,10 @@ class ConsumerBot:
             safety_map = np.multiply(self.free_map._map, self.map_representation._map)
         safest_tile = np.unravel_index(safety_map.argmax(), safety_map.shape)
 
-        return self.plan_to_tile(safest_tile)
+        return self.plan_to_tile(safest_tile, evacuation=True)
 
     def path_to_freest_area(self, danger_zone: Optional[BombAreaMap] = None):
-        # take out unsafe tiles from free_map:
+        # take out unsafe tiles from free_map. Chooses the most free accesible area
         if danger_zone is not None:
             safety_map = np.multiply(danger_zone,
                                      np.multiply(self.free_map._map,
@@ -139,18 +139,16 @@ class ConsumerBot:
 
         return self.plan_to_tile(safest_tile)
 
-    def plan_to_tile(self, goal_tile: Tuple[int, int]) -> Tuple[List, bool]:
-        if not goal_tile:
+    def plan_to_tile(self, goal_tile: Tuple[int, int], evacuation = False ) -> Tuple[List, bool]:
+        timeout = TIMEOUT
+        tiles = []
+        plan = []
+        plan_w_bomb_breaks = []
+        ite = 0
+        tile = tuple(goal_tile)
+        if not goal_tile or self.map_representation.value_at_point(tile) == 0:
             return [], False
 
-        plan = []
-        tile = tuple(goal_tile)
-        if self.map_representation.value_at_point(tile) == 0:
-            return plan, False
-
-        tiles = []
-        timeout = TIMEOUT
-        ite = 0
         while tile != self.location and ite != timeout:
             moves = np.array([])
             weight = np.array([])
@@ -195,8 +193,10 @@ class ConsumerBot:
             else:
                 break
             tiles.insert(0, tile)
+        # Evacuation doesnt account for the danger of planning in the fire
+        if evacuation:
+            plan, True
 
-        plan_w_bomb_breaks = []
         for i, tile in enumerate(tiles):
             mask = self.bomb_management_map.get_mask_at_step(self.game_state.tick_number + i)
             # If the next move goes into a dangerous tile, stay still a turn, then continue
@@ -270,7 +270,7 @@ class ConsumerBot:
         elif self.previous_plan == "run":
             d = danger_zone if self.bomb_management_map.last_placed_bomb is None \
                 else danger_zone - self.bomb_management_map.last_placed_bomb._map
-            plan, _ = self.path_to_safest_area(d)
+            plan, _ = self.path_to_freest_area(d) # <- change for freest area which multiplies for the accesible_area_mask
             self.previous_plan = None
         # 4 Plan for killing, finish it if started
         elif (0 < self.free_map._map[self.opponent_tile] < ATTACK_THRESH) and \
