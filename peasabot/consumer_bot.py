@@ -36,7 +36,7 @@ class ConsumerBot:
         self.map_representation = DistanceMap(self.size)
         self.free_map = FreedomMap(self.size)
         self.bomb_target_map = TargetMap(self.size)
-        self.bomb_management_map = BombAreaMap(self.size, danger_thresh=DANGER_THRESH)
+        self.bomb_management_map = BombAreaMap(self.size, danger_thresh=BOMB_TICK_THRESHOLD)
         self.previous_plan = None
 
         self.planned_actions = []
@@ -201,19 +201,6 @@ class ConsumerBot:
         else:
             return False
 
-    def is_in_danger(self):
-        if not self.current_bombs:
-            return None, False
-
-        status = False
-        danger_zone = np.ones(self.size)
-        for bomb in self.current_bombs:
-            if bomb.time_to_explode(self.game_state.tick_number) < BOMB_TICK_THRESHOLD:
-                danger_zone += bomb._map
-                status = True
-
-        return danger_zone, status
-
     def is_ammo_avail(self):
         ammo_tile = self.get_closest_item(self.game_state.ammo)
         if ammo_tile is not None and self.map_representation.value_at_point(ammo_tile) > 0:
@@ -251,7 +238,7 @@ class ConsumerBot:
 
     def next_move_killer(self):
         # Agent possibilities
-        danger_zone, danger_status = self.is_in_danger()
+        danger_zone, danger_status = self.bomb_management_map.is_in_danger()
         ammo_tile, ammo_status = self.is_ammo_avail()
         treasure_tile, treasure_status = self.is_treasure_avail()
         kill_tiles, kill_status = self.is_killing_an_option()
@@ -265,29 +252,22 @@ class ConsumerBot:
         # 3 Pick up treasures, they are also good
         elif treasure_status:
             plan, _ = self.plan_to_tile(treasure_tile)
+        # 4 If we finished a plan, get away
+        elif self.previous_plan == "run":
+            d = danger_zone if self.bomb_management_map.last_placed_bomb is None else danger_zone - self.bomb_management_map.last_placed_bomb
+            self.path_to_safest_area(danger_zone)
         # 4 Plan for killing, finish it if started
         elif (0 < self.free_map._map[self.opponent_tile] < CORNER_THRESH) and \
              (self.previous_plan == "kill" or kill_status):
             plan, connected = self.plan_to_tile(kill_tiles)
             self.previous_plan = (None if not plan else "kill")
             plan.insert(0, 'p')
-            # After moving the bomb, move towards the spot that locks best the opponent
-            if danger_zone is not None:
-                danger_zone[self.location] = 0
-            free_area = self.path_to_freest_area(danger_zone)[0]
-            if free_area:
-                plan.insert(0, free_area.pop())
         # 5 Place a bomb in a good place if you have bombs
         elif self.previous_plan == "loot" or self.ammo > MIN_BOMB:
             best_point_for_bomb = self.get_best_point_for_bomb()
             plan, _ = self.plan_to_tile(best_point_for_bomb)
             self.previous_plan = (None if not plan else "loot")
             plan.insert(0, 'p')
-            if danger_zone is not None:
-                danger_zone[self.location] = 0
-            free_area = self.path_to_freest_area(danger_zone)[0]
-            if free_area:
-                plan.insert(0, free_area.pop())
         # 6 If there is still ammo around and we are bored, let's go catch it
         elif ammo_status:
             plan, _ = self.plan_to_tile(ammo_tile)

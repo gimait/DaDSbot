@@ -299,6 +299,8 @@ class BombAreaMap(GrMap):
         super().__init__(size)
         self.bombs = []
         self.danger_thresh = danger_thresh
+        self.in_danger = False
+        self.last_placed_bomb = None
 
     def update(self, game_state: GameState, player_pos: Tuple[int, int]) -> None:
 
@@ -306,11 +308,16 @@ class BombAreaMap(GrMap):
         for game_bomb in game_state.bombs:
             if game_bomb not in self.bombs:
                 own = player_pos == game_bomb
-                self.bombs.append(BombArea(size=self.size,
-                                           step=game_state.tick_number,
-                                           position=game_bomb,
-                                           owned=own,
-                                           danger_thresh=self.danger_thresh))
+                ba = BombArea(size=self.size,
+                              step=game_state.tick_number,
+                              position=game_bomb,
+                              owned=own,
+                              danger_thresh=self.danger_thresh)
+                if own:
+                    self.last_placed_bomb = ba
+                else:
+                    self.last_placed_bomb = None
+                self.bombs.append(ba)
 
         # Then, update the bombs
         i = 0
@@ -340,15 +347,19 @@ class BombAreaMap(GrMap):
         danger_map = np.zeros(self.size)
         owned_map = np.zeros(self.size)
         not_owned_map = np.zeros(self.size)
-
+        self.in_danger = False
         for bomb in self.bombs:
             if bomb.owned:
                 owned_map += bomb._map
             else:
                 not_owned_map += bomb._map
             if bomb.should_be_avoided(tick_number):
+                self.in_danger = True
                 danger_map += bomb._map
 
         self._map = np.where(owned_map > 0, 0, 1)
         self.opponent = np.where(not_owned_map > 0, 0, 1)
         self.danger_zone = np.where(danger_map > 0, 0, 1)
+
+    def is_in_danger(self):
+        return self.danger_zone, self.in_danger
