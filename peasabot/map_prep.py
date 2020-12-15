@@ -2,7 +2,7 @@
 Functions to process the map information
 """
 
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 from coderone.dungeon.agent import GameState
 
@@ -235,8 +235,8 @@ class FreedomMap(GrMap):
                 if ext_map[u, v] == 1:
                     val = self._apply_mask(ext_map, (u, v), self.mask0)
                     if val > 4:
-                        val = self._apply_mask(ext_map, (u, v), self.mask1)
-                    _map[u - 1, v - 1] = val * val
+                        val += self._apply_mask(ext_map, (u, v), self.mask1)
+                    _map[u - 1, v - 1] = val ** 2
         return _map
 
     @staticmethod
@@ -266,7 +266,7 @@ class BombArea(GrMap, TimeBomb):
         super().__init__(size=size, v_border=np.full((size[0] + 4, 1), -1), step=step, position=position)
         self._idx_cross = [(-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0), (0, 2), (0, 1), (0, -1), (0, -2)]
         self.affected_area = 0
-        self.fired = False
+        self.fired = 0
         self.owned = owned
         self.danger_thresh = danger_thresh
         self._initialize()
@@ -336,7 +336,7 @@ class BombAreaMap(GrMap):
         i = 0
         while i < len(self.bombs):
             # If the bomb was fired, get rid of it
-            if self.bombs[i].fired:
+            if self.bombs[i].fired > 2:
                 del self.bombs[i]
             else:
                 # Otherwise, we need to update the timing of all connected bombs
@@ -346,7 +346,7 @@ class BombAreaMap(GrMap):
                             other_bomb.update(new_time=(self.bombs[i].placement_step + 1), owned=self.bombs[i].owned)
                 # On top of that, if this bomb is no longer in the list given by the game, it means that it was fired
                 if self.bombs[i] not in game_state.bombs:
-                    self.bombs[i].fired = True
+                    self.bombs[i].fired += 1
                 i += 1
 
         # Once we updated the info about all bombs, let's generate a danger mask, another with our bombs areas and
@@ -360,8 +360,10 @@ class BombAreaMap(GrMap):
         danger_map = np.zeros(self.size)
         owned_map = np.zeros(self.size)
         not_owned_map = np.zeros(self.size)
+        all_map = np.zeros(self.size)
         self.in_danger = False
         for bomb in self.bombs:
+            all_map += bomb._map
             if bomb.owned:
                 owned_map += bomb._map
             else:
@@ -373,6 +375,7 @@ class BombAreaMap(GrMap):
         self._map = np.where(owned_map > 0, 0, 1)
         self.opponent = np.where(not_owned_map > 0, 0, 1)
         self.danger_zone = np.where(danger_map > 0, 0, 1)
+        self.all_map = np.where(all_map > 0, 0, 1)
 
     def is_in_danger(self):
         return self.danger_zone, self.in_danger

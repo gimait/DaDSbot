@@ -3,7 +3,7 @@ Our peasant bot.
 """
 from coderone.dungeon.agent import GameState, PlayerState
 
-from .consumer_bot import ConsumerBot
+from .consumer_bot import ConsumerBot, CORNER_THRESH
 import time
 
 
@@ -27,6 +27,14 @@ class Agent(ConsumerBot):
         else:  # Map is not updated and there are planned actions
             pass
         action = (self.planned_actions.pop() if self.planned_actions else '')
+
+        if action == 'p':
+            if self.free_map._map[self.location] < CORNER_THRESH and self.bomb_management_map.all_map[self.location] < 1:
+                if not self.planned_actions:
+                    action = ''
+                else:
+                    action = self.planned_actions.pop()
+            self.previous_plan = 'run'
 
         self.full_map_prev = full_map  # Update the map for checking if change in the next tick
         self.last_move = action

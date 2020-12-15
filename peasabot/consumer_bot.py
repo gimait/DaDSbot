@@ -15,8 +15,9 @@ from .utilities import get_opponents
 TIMEOUT = 20  # Maximum of positions to calculate in the planning
 MAX_BOMB = 5  # Don't pick up more
 MIN_BOMB = 1  # Don't place bomb
-BOMB_TICK_THRESHOLD = 10  # Time for escaping of the bomb
-CORNER_THRESH = 40  # Threshold that indicates when a spot has a very low degree of freedom
+BOMB_TICK_THRESHOLD = 15  # Time for escaping of the bomb
+CORNER_THRESH = 30  # Threshold that indicates when a spot has a very low degree of freedom
+ATTACK_THRESH = 70
 DANGER_THRESH = 5
 
 
@@ -254,10 +255,12 @@ class ConsumerBot:
             plan, _ = self.plan_to_tile(treasure_tile)
         # 4 If we finished a plan, get away
         elif self.previous_plan == "run":
-            d = danger_zone if self.bomb_management_map.last_placed_bomb is None else danger_zone - self.bomb_management_map.last_placed_bomb
-            self.path_to_safest_area(danger_zone)
+            d = danger_zone if self.bomb_management_map.last_placed_bomb is None \
+                else danger_zone - self.bomb_management_map.last_placed_bomb._map
+            plan, _ = self.path_to_safest_area(d)
+            self.previous_plan = None
         # 4 Plan for killing, finish it if started
-        elif (0 < self.free_map._map[self.opponent_tile] < CORNER_THRESH) and \
+        elif (0 < self.free_map._map[self.opponent_tile] < ATTACK_THRESH) and \
              (self.previous_plan == "kill" or kill_status):
             plan, connected = self.plan_to_tile(kill_tiles)
             self.previous_plan = (None if not plan else "kill")
