@@ -130,11 +130,15 @@ class ConsumerBot:
             safety_map = np.multiply(self.free_map._map, self.map_representation._map)
         safest_tile = np.unravel_index(safety_map.argmax(), safety_map.shape)
 
-        tiles, plan = self.greedy_search(safest_tile, self.emergency_map)
-        return plan, True
+        tiles, plan, connected = self.greedy_search(safest_tile, self.emergency_map)
+        if not connected:
+            return plan, connected
+        return plan, connected
 
     def plan_to_tile(self, goal_tile: Tuple[int, int]) -> Tuple[List, bool]:
-        tiles, plan = self.greedy_search(goal_tile, self.map_representation)
+        tiles, plan, connected = self.greedy_search(goal_tile, self.map_representation)
+        if not connected:
+            return plan, connected
         plan_w_bomb_breaks = []
         for i, tile in enumerate(tiles):
             mask = self.bomb_management_map.get_mask_at_step(self.game_state.tick_number + i)
@@ -145,15 +149,15 @@ class ConsumerBot:
                 plan_w_bomb_breaks.append('')
             plan_w_bomb_breaks.append(plan[i])
 
-        return plan_w_bomb_breaks, True
+        return plan_w_bomb_breaks, connected
 
-    def greedy_search(self, goal_tile, map, timeout=20):
+    def greedy_search(self, goal_tile, eval_map, timeout=30): # 20
         tiles = []
         plan = []
         ite = 0
         tile = tuple(goal_tile)
-        if not goal_tile or self.map_representation.value_at_point(tile) == 0:
-            return [], False
+        if not goal_tile or eval_map.value_at_point(tile) == 0:
+            return tiles, [], False
 
         while tile != self.location and ite != timeout:
             moves = np.array([])
@@ -163,25 +167,25 @@ class ConsumerBot:
             (new_tile_r, new_tile_u, new_tile_l, new_tile_d) = (list_tiles[0], list_tiles[1],
                                                                 list_tiles[2], list_tiles[3])
 
-            if self.game_state.is_in_bounds(new_tile_r) and map.value_at_point(new_tile_r) > 0:
+            if self.game_state.is_in_bounds(new_tile_r) and eval_map.value_at_point(new_tile_r) > 0:
                 moves = np.append(moves, 'r')
-                weight = np.append(weight, map.value_at_point(new_tile_r))
+                weight = np.append(weight, eval_map.value_at_point(new_tile_r))
             # Up
-            if self.game_state.is_in_bounds(new_tile_u) and map.value_at_point(new_tile_u) > 0:
+            if self.game_state.is_in_bounds(new_tile_u) and eval_map.value_at_point(new_tile_u) > 0:
                 moves = np.append(moves, 'u')
-                weight = np.append(weight, map.value_at_point(new_tile_u))
+                weight = np.append(weight, eval_map.value_at_point(new_tile_u))
             # Left
-            if self.game_state.is_in_bounds(new_tile_l) and map.value_at_point(new_tile_l) > 0:
+            if self.game_state.is_in_bounds(new_tile_l) and eval_map.value_at_point(new_tile_l) > 0:
                 moves = np.append(moves, 'l')
-                weight = np.append(weight, map.value_at_point(new_tile_l))
+                weight = np.append(weight, eval_map.value_at_point(new_tile_l))
             # Down
-            if self.game_state.is_in_bounds(new_tile_d) and map.value_at_point(new_tile_d) > 0:
+            if self.game_state.is_in_bounds(new_tile_d) and eval_map.value_at_point(new_tile_d) > 0:
                 moves = np.append(moves, 'd')
-                weight = np.append(weight, map.value_at_point(new_tile_d))
+                weight = np.append(weight, eval_map.value_at_point(new_tile_d))
 
             # minimum value
             if weight.size == 0:
-                return [''], False
+                return tiles, [''], False
 
             index = np.where(weight == np.amin(weight))
             movement = (moves[index].tolist())[-1]
@@ -199,7 +203,7 @@ class ConsumerBot:
             else:
                 break
             tiles.insert(0, tile)
-        return tiles, plan
+        return tiles, plan, True
 
     @staticmethod
     def is_bomb_connected(b1, b2):
