@@ -2,7 +2,7 @@
 Functions to process the map information
 """
 
-from typing import Tuple, Optional
+from typing import List, Optional, Tuple
 
 from coderone.dungeon.agent import GameState
 
@@ -236,23 +236,39 @@ class FreedomMap(GrMap):
         return _map
 
 
-class BombAreaMap(GrMap, TimeBomb):
-    def __init__(self, size, step: int, position: Tuple[int, int]):
+class BombArea(GrMap, TimeBomb):
+    """
+    Takes care of managing the bombs with their timers.
+    Contains a map of zeros with ones on the areas of effect of a single bomb.
+    The update method allows to change the time of placement of the bomb, which is related to the time of explosion.
+    """
+
+    __slots__ = [
+        "_idx_cross",
+        "affected_area",
+        "fired",
+        "owned"
+    ]
+
+    def __init__(self, size, step: int, position: Tuple[int, int], owned: bool, danger_thresh: int):
         super().__init__(size=size, v_border=np.full((size[0] + 4, 1), -1), step=step, position=position)
         self._idx_cross = [(-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0), (0, 2), (0, 1), (0, -1), (0, -2)]
         self.affected_area = 0
+        self.fired = False
+        self.owned = owned
+        self.danger_thresh = danger_thresh
         self._initialize()
 
     def _initialize(self):
         self._map = np.zeros(self.size)
         self._add_cross_to_map(self.position)
 
-    def update(self, new_bomb: Tuple[int, int]) -> bool:
-        if self._map[new_bomb]:
-            self._add_cross_to_map(new_bomb)
-            return True
-        else:
-            return False
+    def update(self, new_time: int, owned: bool) -> None:
+        """ Update the time of explosion of the bomb."""
+        # If the new time is smaller than the old time, the ownership changes
+        if new_time < self.placement_step:
+            self.placement_step = new_time
+            self.owned = owned
 
     def should_be_avoided(self, tick):
         if self.time_to_explode(tick) < (self.affected_area / 4):
@@ -266,14 +282,73 @@ class BombAreaMap(GrMap, TimeBomb):
             affected_tile = (tile[0] + c[0], tile[1] + c[1])
             if self.size[0] > affected_tile[0] >= 0 and self.size[1] > affected_tile[1] >= 0 \
                and self._map[affected_tile] >= 0:
-                self._map[affected_tile] = -1
+                self._map[affected_tile] = 1
                 self.affected_area += 1
 
 
-def gen_manhattan_map(base_size: Tuple[int, int]) -> np.array:
-    """Generate a supermap that contains all possible minimum distances to points in the map"""
-    mega_map = np.zeros((base_size[0] * 2 - 1, base_size[1] * 2 - 1))
-    for u in range(mega_map.shape[0]):
-        for v in range(mega_map.shape[1]):
-            mega_map[u, v] = abs(base_size[0] - u) + abs(base_size[1] - v)
-    return mega_map
+class BombAreaMap(GrMap):
+    """
+    This class encapsulates and manages all bombs, making available a set of masks indicating the areas of your own
+    bombs, other persons bombs and the danger areas given a threshold, as a map of ones with the affected area as zeros.
+    """
+    __slots__ = [
+        "bombs",
+        "danger_thresh"
+    ]
+
+    def __init__(self, size: Tuple[int, int], danger_thresh: Optional[int] = 1):
+        super().__init__(size)
+        self.bombs = []
+        self.danger_thresh = danger_thresh
+
+    def update(self, game_state: GameState, player_pos: Tuple[int, int]) -> None:
+
+        # First, add new bombs to list
+        for game_bomb in game_state.bombs:
+            if game_bomb not in self.bombs:
+                own = player_pos == game_bomb
+                self.bombs.append(BombArea(size=self.size,
+                                           step=game_state.tick_number,
+                                           position=game_bomb,
+                                           owned=own,
+                                           danger_thresh=self.danger_thresh))
+
+        # Then, update the bombs
+        for bomb in self.bombs:
+            # If the bomb was fired, get rid of it
+            if bomb.fired:
+                del bomb
+                continue
+            else:
+                # Otherwise, we need to update the timing of all connected bombs
+                if len(self.bombs) > 1:
+                    for other_bomb in self.bombs[1:]:
+                        if bomb._map[other_bomb.position] > 0:
+                            other_bomb.update(new_time=(bomb.placement_step + 1), owned=bomb.owned)
+                # On top of that, if this bomb is no longer in the list given by the game, it means that it was fired
+                if bomb not in game_state.bombs:
+                    bomb.fired = True
+
+        # Once we updated the info about all bombs, let's generate a danger mask, another with our bombs areas and
+        # another with
+        self._update_maps(game_state.tick_number)
+
+    def _update_maps(self, tick_number):
+        # TODO: The owned/ not owned maps don't differenciate when they collide on who would take the bomb.
+        # It would be possible that placing a bomb in one of those conflictive areas we lost all of our area or
+        # we stole it. We should add some checks for this, to ensure that the areas are well defined.
+        danger_map = np.zeros(self.size)
+        owned_map = np.zeros(self.size)
+        not_owned_map = np.zeros(self.size)
+
+        for bomb in self.bombs:
+            if bomb.owned:
+                owned_map += bomb._map
+            else:
+                not_owned_map += bomb._map
+            if bomb.should_be_avoided(tick_number):
+                danger_map += bomb._map
+
+        self._map = np.where(owned_map > 0, 0, 1)
+        self.opponent = np.where(not_owned_map > 0, 0, 1)
+        self.danger_zone = np.where(danger_map > 0, 0, 1)

@@ -15,6 +15,12 @@ class ItemTimer(object):
     def lapsed_time(self, current_step):
         return current_step - self.placement_step
 
+    def __eq__(self, other):
+        if isinstance(other, ItemTimer):
+            return self.position == other.position
+        else:
+            return self.position == other
+
 
 class TimeBomb(ItemTimer):
     """ Timer for bombs (to tell when they will explode)."""

@@ -17,6 +17,7 @@ MAX_BOMB = 5  # Don't pick up more
 MIN_BOMB = 1  # Don't place bomb
 BOMB_TICK_THRESHOLD = 10  # Time for escaping of the bomb
 CORNER_THRESH = 50  # Threshold that indicates when a spot has a very low degree of freedom
+DANGER_THRESH = 4
 
 
 class ConsumerBot:
@@ -35,6 +36,7 @@ class ConsumerBot:
         self.map_representation = DistanceMap(self.size)
         self.free_map = FreedomMap(self.size)
         self.bomb_target_map = TargetMap(self.size)
+        self.bomb_management_map = BombAreaMap(self.size, danger_thresh=DANGER_THRESH)
         self.previous_plan = None
 
         self.planned_actions = []
@@ -75,34 +77,12 @@ class ConsumerBot:
         self.opponent_tile = get_opponents(self.player_state.id, self.game_state._players)[0]
 
         # Check new bombs and update timers
-        self.update_bombs(game_state)
-        endangered = (self.current_bombs and self.current_bombs[0].should_be_avoided(self.game_state.tick_number)
-                      and not self.current_bombs[0].value_at_point(self.location))
-        bomb_mask = self.current_bombs[0]._map if endangered else None
-        # Depending on wether we are inside a bomb area or just
-        self.free_map.update(game_state, player_state.location, player_state.id, mask=bomb_mask)
+        self.bomb_management_map.update(game_state, player_state.location)
+        self.free_map.update(game_state, player_state.location, player_state.id,
+                             mask=self.bomb_management_map.danger_zone)
         self.bomb_target_map.update(game_state, player_state.location, player_state.id)
-        self.map_representation.update(game_state, player_state.location, player_state.id, mask=bomb_mask)
-
-    def update_bombs(self, game_state):
-        if game_state.bombs:
-            new_bombs = []
-            if not self.current_bombs:
-                self.current_bombs = [BombAreaMap(size=self.size,
-                                                  position=game_state.bombs[0], step=game_state.tick_number)]
-            for cb in self.current_bombs:
-                for b in game_state.bombs:
-                    if not cb.update(b):
-                        new_bombs.append(BombAreaMap(size=self.size, position=b, step=game_state.tick_number))
-            self.current_bombs += new_bombs
-            to_del = []
-            for i in range(1, len(self.current_bombs)):
-                for j in range(i, len(self.current_bombs)):
-                    if self.current_bombs[i - 1].update(self.current_bombs[j].position):
-                        to_del.append(j)
-            self.current_bombs = [bomb_map for i, bomb_map in enumerate(self.current_bombs) if i not in to_del]
-        else:
-            self.current_bombs = []
+        self.map_representation.update(game_state, player_state.location, player_state.id,
+                                       mask=self.bomb_management_map.danger_zone)
 
     def get_closest_item(self, item):
         distance = 999  # here check with the value of the no possible from the value_at_point
