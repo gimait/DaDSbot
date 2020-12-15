@@ -283,7 +283,7 @@ class BombArea(GrMap, TimeBomb):
             self.owned = owned
 
     def should_be_avoided(self, tick):
-        if self.time_to_explode(tick) < (self.affected_area / 4):
+        if self.time_to_explode(tick) < self.danger_thresh: #(self.affected_area / 4):
             return True
         else:
             return False
@@ -383,6 +383,6 @@ class BombAreaMap(GrMap):
     def get_mask_at_step(self, step: int) -> np.array:
         mask = np.zeros(self.size)
         for bomb in self.bombs:
-            if bomb.time_to_explode(step) <= self.danger_thresh:   ## ??? It was here where you wanted to put it?
+            if bomb.time_to_explode(step) == 0:
                 mask += bomb._map
         return np.where(mask > 0, 0, 1)
