@@ -74,9 +74,8 @@ class DistanceMap(GrMap):
             basemap[block] = -1
         if mask is not None:
             basemap += mask - 1
-        else:
-            for bomb in self.state.bombs:
-                basemap[bomb] = -1
+        for bomb in self.state.bombs:
+            basemap[bomb] = -1
         for player in get_opponents(self.player_id, self.state._players):
             basemap[player] = -1
         # Run basic distance with dilation operation
@@ -314,20 +313,21 @@ class BombAreaMap(GrMap):
                                            danger_thresh=self.danger_thresh))
 
         # Then, update the bombs
-        for bomb in self.bombs:
+        i = 0
+        while i < len(self.bombs):
             # If the bomb was fired, get rid of it
-            if bomb.fired:
-                del bomb
-                continue
+            if self.bombs[i].fired:
+                del self.bombs[i]
             else:
                 # Otherwise, we need to update the timing of all connected bombs
                 if len(self.bombs) > 1:
                     for other_bomb in self.bombs[1:]:
-                        if bomb._map[other_bomb.position] > 0:
-                            other_bomb.update(new_time=(bomb.placement_step + 1), owned=bomb.owned)
+                        if self.bombs[i]._map[other_bomb.position] > 0:
+                            other_bomb.update(new_time=(self.bombs[i].placement_step + 1), owned=self.bombs[i].owned)
                 # On top of that, if this bomb is no longer in the list given by the game, it means that it was fired
-                if bomb not in game_state.bombs:
-                    bomb.fired = True
+                if self.bombs[i] not in game_state.bombs:
+                    self.bombs[i].fired = True
+                i += 1
 
         # Once we updated the info about all bombs, let's generate a danger mask, another with our bombs areas and
         # another with

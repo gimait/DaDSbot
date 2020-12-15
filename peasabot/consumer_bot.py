@@ -16,8 +16,8 @@ TIMEOUT = 20  # Maximum of positions to calculate in the planning
 MAX_BOMB = 5  # Don't pick up more
 MIN_BOMB = 1  # Don't place bomb
 BOMB_TICK_THRESHOLD = 10  # Time for escaping of the bomb
-CORNER_THRESH = 50  # Threshold that indicates when a spot has a very low degree of freedom
-DANGER_THRESH = 4
+CORNER_THRESH = 40  # Threshold that indicates when a spot has a very low degree of freedom
+DANGER_THRESH = 5
 
 
 class ConsumerBot:
@@ -78,11 +78,9 @@ class ConsumerBot:
 
         # Check new bombs and update timers
         self.bomb_management_map.update(game_state, player_state.location)
-        self.free_map.update(game_state, player_state.location, player_state.id,
-                             mask=self.bomb_management_map.danger_zone)
+        self.free_map.update(game_state, player_state.location, player_state.id)
         self.bomb_target_map.update(game_state, player_state.location, player_state.id)
-        self.map_representation.update(game_state, player_state.location, player_state.id,
-                                       mask=self.bomb_management_map.danger_zone)
+        self.map_representation.update(game_state, player_state.location, player_state.id)
 
     def get_closest_item(self, item):
         distance = 999  # here check with the value of the no possible from the value_at_point
