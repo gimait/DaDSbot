@@ -27,6 +27,7 @@ class ConsumerBot:
         self.size = size
 
         self.map_representation = DistanceMap(self.size)
+        self.emergency_map = DistanceMap(self.size)
         self.free_map = FreedomMap(self.size)
         self.bomb_target_map = TargetMap(self.size)
         self.bomb_management_map = BombAreaMap(self.size, danger_thresh=bomb_tick_threshold)
@@ -72,7 +73,8 @@ class ConsumerBot:
         self.bomb_management_map.update(game_state, player_state.location)
         self.free_map.update(game_state, player_state.location, player_state.id)
         self.bomb_target_map.update(game_state, player_state.location, player_state.id)
-        self.map_representation.update(game_state, player_state.location, player_state.id)
+        self.map_representation.update(game_state, player_state.location, player_state.id, mask=self.bomb_management_map.danger_zone)
+        self.emergency_map.update(game_state, player_state.location, player_state.id)
 
     def get_closest_item(self, item):
         distance = 999  # here check with the value of the no possible from the value_at_point
@@ -106,18 +108,6 @@ class ConsumerBot:
                 best_tile = tile
         return best_tile
 
-    def path_to_safest_area(self, danger_zone: Optional[BombAreaMap] = None):
-        # take out unsafe tiles from free_map. Choose the closest free_area
-        if danger_zone is not None:
-            safety_map = np.multiply(danger_zone,
-                                     np.multiply(self.free_map._map,
-                                                 self.map_representation.distance_penalty_map))
-        else:
-            safety_map = np.multiply(self.free_map._map, self.map_representation._map)
-        safest_tile = np.unravel_index(safety_map.argmax(), safety_map.shape)
-
-        return self.plan_to_tile(safest_tile, evacuation=True)
-
     def path_to_freest_area(self, danger_zone: Optional[BombAreaMap] = None):
         # take out unsafe tiles from free_map. Chooses the most free accesible area
         if danger_zone is not None:
@@ -130,10 +120,36 @@ class ConsumerBot:
 
         return self.plan_to_tile(safest_tile)
 
-    def plan_to_tile(self, goal_tile: Tuple[int, int], timeout = 20, evacuation = False ) -> Tuple[List, bool]:
+    def plan_to_safest_area(self, danger_zone: Optional[BombAreaMap] = None):
+        # Map without bombs considered to escape asap but consider it for choosing the tile
+        if danger_zone is not None:
+            safety_map = np.multiply(danger_zone,
+                                     np.multiply(self.free_map._map,
+                                                 self.map_representation.distance_penalty_map))
+        else:
+            safety_map = np.multiply(self.free_map._map, self.map_representation._map)
+        safest_tile = np.unravel_index(safety_map.argmax(), safety_map.shape)
+
+        tiles, plan = self.greedy_search(safest_tile, self.emergency_map)
+        return plan, True
+
+    def plan_to_tile(self, goal_tile: Tuple[int, int]) -> Tuple[List, bool]:
+        tiles, plan = self.greedy_search(goal_tile, self.map_representation)
+        plan_w_bomb_breaks = []
+        for i, tile in enumerate(tiles):
+            mask = self.bomb_management_map.get_mask_at_step(self.game_state.tick_number + i)
+            # If the next move goes into a dangerous tile, stay still a turn, then continue
+            # TODO: we should upgrade the path planning to move in the best non-hit manner (in some cases, moving a
+            # different direction could be better)
+            if mask[tile] == 0:
+                plan_w_bomb_breaks.append('')
+            plan_w_bomb_breaks.append(plan[i])
+
+        return plan_w_bomb_breaks, True
+
+    def greedy_search(self, goal_tile, map, timeout=20):
         tiles = []
         plan = []
-        plan_w_bomb_breaks = []
         ite = 0
         tile = tuple(goal_tile)
         if not goal_tile or self.map_representation.value_at_point(tile) == 0:
@@ -146,30 +162,30 @@ class ConsumerBot:
             list_tiles = self.get_cross_tiles(tile)
             (new_tile_r, new_tile_u, new_tile_l, new_tile_d) = (list_tiles[0], list_tiles[1],
                                                                 list_tiles[2], list_tiles[3])
-            if self.game_state.is_in_bounds(new_tile_r) and self.map_representation.value_at_point(new_tile_r) > 0:
+
+            if self.game_state.is_in_bounds(new_tile_r) and map.value_at_point(new_tile_r) > 0:
                 moves = np.append(moves, 'r')
-                weight = np.append(weight, self.map_representation.value_at_point(new_tile_r))
+                weight = np.append(weight, map.value_at_point(new_tile_r))
             # Up
-            if self.game_state.is_in_bounds(new_tile_u) and self.map_representation.value_at_point(new_tile_u) > 0:
+            if self.game_state.is_in_bounds(new_tile_u) and map.value_at_point(new_tile_u) > 0:
                 moves = np.append(moves, 'u')
-                weight = np.append(weight, self.map_representation.value_at_point(new_tile_u))
+                weight = np.append(weight, map.value_at_point(new_tile_u))
             # Left
-            if self.game_state.is_in_bounds(new_tile_l) and self.map_representation.value_at_point(new_tile_l) > 0:
+            if self.game_state.is_in_bounds(new_tile_l) and map.value_at_point(new_tile_l) > 0:
                 moves = np.append(moves, 'l')
-                weight = np.append(weight, self.map_representation.value_at_point(new_tile_l))
+                weight = np.append(weight, map.value_at_point(new_tile_l))
             # Down
-            if self.game_state.is_in_bounds(new_tile_d) and self.map_representation.value_at_point(new_tile_d) > 0:
+            if self.game_state.is_in_bounds(new_tile_d) and map.value_at_point(new_tile_d) > 0:
                 moves = np.append(moves, 'd')
-                weight = np.append(weight, self.map_representation.value_at_point(new_tile_d))
+                weight = np.append(weight, map.value_at_point(new_tile_d))
 
             # minimum value
             if weight.size == 0:
-                return([''], False)
+                return [''], False
 
             index = np.where(weight == np.amin(weight))
             movement = (moves[index].tolist())[-1]
             plan.insert(0, movement)
-
             # Update tile and iteration
             ite = ite + 1
             if movement == 'r':
@@ -183,20 +199,7 @@ class ConsumerBot:
             else:
                 break
             tiles.insert(0, tile)
-        # Evacuation doesnt account for the danger of planning in the fire
-        if evacuation:
-            plan, True
-
-        for i, tile in enumerate(tiles):
-            mask = self.bomb_management_map.get_mask_at_step(self.game_state.tick_number + i)
-            # If the next move goes into a dangerous tile, stay still a turn, then continue
-            # TODO: we should upgrade the path planning to move in the best non-hit manner (in some cases, moving a
-            # different direction could be better)
-            if mask[tile] == 0:
-                plan_w_bomb_breaks.append('')
-            plan_w_bomb_breaks.append(plan[i])
-
-        return plan_w_bomb_breaks, True
+        return tiles, plan
 
     @staticmethod
     def is_bomb_connected(b1, b2):
