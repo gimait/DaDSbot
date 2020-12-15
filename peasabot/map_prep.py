@@ -266,7 +266,7 @@ class BombArea(GrMap, TimeBomb):
         super().__init__(size=size, v_border=np.full((size[0] + 4, 1), -1), step=step, position=position)
         self._idx_cross = [(-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0), (0, 2), (0, 1), (0, -1), (0, -2)]
         self.affected_area = 0
-        self.fired = 0
+        self.fired = False
         self.owned = owned
         self.danger_thresh = danger_thresh
         self._initialize()
@@ -336,7 +336,7 @@ class BombAreaMap(GrMap):
         i = 0
         while i < len(self.bombs):
             # If the bomb was fired, get rid of it
-            if self.bombs[i].fired > 2:
+            if self.bombs[i].fired:
                 del self.bombs[i]
             else:
                 # Otherwise, we need to update the timing of all connected bombs
@@ -346,7 +346,7 @@ class BombAreaMap(GrMap):
                             other_bomb.update(new_time=(self.bombs[i].placement_step + 1), owned=self.bombs[i].owned)
                 # On top of that, if this bomb is no longer in the list given by the game, it means that it was fired
                 if self.bombs[i] not in game_state.bombs:
-                    self.bombs[i].fired += 1
+                    self.bombs[i].fired = True
                 i += 1
 
         # Once we updated the info about all bombs, let's generate a danger mask, another with our bombs areas and
@@ -379,3 +379,10 @@ class BombAreaMap(GrMap):
 
     def is_in_danger(self):
         return self.danger_zone, self.in_danger
+
+    def get_mask_at_step(self, step: int) -> np.array:
+        mask = np.zeros(self.size)
+        for bomb in self.bombs:
+            if bomb.time_to_explode(step) == 0:
+                mask += bomb._map
+        return np.where(mask > 0, 0, 1)

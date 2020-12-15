@@ -15,10 +15,10 @@ from .utilities import get_opponents
 TIMEOUT = 20  # Maximum of positions to calculate in the planning
 MAX_BOMB = 5  # Don't pick up more
 MIN_BOMB = 1  # Don't place bomb
-BOMB_TICK_THRESHOLD = 15  # Time for escaping of the bomb
+BOMB_TICK_THRESHOLD = 0  # Time for escaping of the bomb
 CORNER_THRESH = 30  # Threshold that indicates when a spot has a very low degree of freedom
 ATTACK_THRESH = 70
-DANGER_THRESH = 5
+DANGER_THRESH = 0
 
 
 class ConsumerBot:
@@ -148,6 +148,7 @@ class ConsumerBot:
         if self.map_representation.value_at_point(tile) == 0:
             return plan, False
 
+        tiles = []
         timeout = TIMEOUT
         ite = 0
         while tile != self.location and ite != timeout:
@@ -179,7 +180,7 @@ class ConsumerBot:
 
             index = np.where(weight == np.amin(weight))
             movement = (moves[index].tolist())[-1]
-            plan.append(movement)
+            plan.insert(0, movement)
 
             # Update tile and iteration
             ite = ite + 1
@@ -193,7 +194,19 @@ class ConsumerBot:
                 tile = new_tile_d
             else:
                 break
-        return plan, True
+            tiles.insert(0, tile)
+
+        plan_w_bomb_breaks = []
+        for i, tile in enumerate(tiles):
+            mask = self.bomb_management_map.get_mask_at_step(self.game_state.tick_number + i)
+            # If the next move goes into a dangerous tile, stay still a turn, then continue
+            # TODO: we should upgrade the path planning to move in the best non-hit manner (in some cases, moving a
+            # different direction could be better)
+            if mask[tile] == 0:
+                plan_w_bomb_breaks.append('')
+            plan_w_bomb_breaks.append(plan[i])
+
+        return plan_w_bomb_breaks, True
 
     @staticmethod
     def is_bomb_connected(b1, b2):
@@ -264,13 +277,13 @@ class ConsumerBot:
              (self.previous_plan == "kill" or kill_status):
             plan, connected = self.plan_to_tile(kill_tiles)
             self.previous_plan = (None if not plan else "kill")
-            plan.insert(0, 'p')
+            plan.append('p')
         # 5 Place a bomb in a good place if you have bombs
         elif self.previous_plan == "loot" or self.ammo > MIN_BOMB:
             best_point_for_bomb = self.get_best_point_for_bomb()
             plan, _ = self.plan_to_tile(best_point_for_bomb)
             self.previous_plan = (None if not plan else "loot")
-            plan.insert(0, 'p')
+            plan.append('p')
         # 6 If there is still ammo around and we are bored, let's go catch it
         elif ammo_status:
             plan, _ = self.plan_to_tile(ammo_tile)
