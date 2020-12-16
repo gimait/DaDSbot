@@ -33,6 +33,8 @@ class ConsumerBot:
         self.bomb_management_map = BombAreaMap(self.size, danger_thresh=bomb_tick_threshold)
         self.previous_plan = None
 
+        # plan management
+        self.keep_plan = 0
         self.planned_actions = []
         self.full_map_prev = None
         self.substrategy = 1
@@ -93,7 +95,9 @@ class ConsumerBot:
                 i += 1
 
     def get_closest_item(self, item):
-        distance = 999  # here check with the value of the no possible from the value_at_point
+        # BASE Find the closest of the item type
+        # Map uses the map_representation that accounts for the bomb_mask(th).
+        distance = 999
         tile = None
         for i, item_tile in enumerate(item):
             d2p_ammo = self.map_representation.value_at_point(item_tile)
@@ -103,28 +107,17 @@ class ConsumerBot:
         return tile
 
     def get_best_point_for_bomb(self):
+        # FARM Used in LOOT state to select the closest tile to place a bomb
+        # Cross of the map_representation with bomb_mask with distance penalty. crossed by free?
         optimal_points = np.multiply(self.free_map._map,
                                       np.multiply(self.map_representation.distance_penalty_map,
                                                   self.bomb_target_map._map))
         return np.unravel_index(optimal_points.argmax(), optimal_points.shape)
 
     def get_freedom_tiles(self):
+        # SURVIVE Change area to safer
         freedom_tiles = np.multiply(self.map_representation.distance_penalty_map, self.free_map._map)
         return np.unravel_index(freedom_tiles.argmax(), freedom_tiles.shape)
-
-    def evaluate_bomb(self, tiles_list):
-        # Input a list of tiles to evaluate Outputs the best tile to place a bomb
-        # First it only considers the closest distance if any better strategy is expected here
-        tlist = ([t for t in tiles_list if self.game_state.is_in_bounds(t)])
-        if not tlist:
-            return([])
-        best_tile = ()
-        best_weight = 0
-        for tile in tlist:
-            tile_value = self.map_representation.value_at_point(tile)
-            if tile_value > best_weight:
-                best_tile = tile
-        return best_tile
 
     def path_to_freest_area(self, danger_zone: Optional[BombAreaMap] = None):
         # take out unsafe tiles from free_map. Chooses the most free accesible area
@@ -264,6 +257,7 @@ class ConsumerBot:
         status = (True if bomb_tile else False)
         return bomb_tile, status
 
+    # NOT USED
     def get_best_blocking_tile(self): #, tile_list: List[Tuple[int, int]]) -> int:
         safety_map = np.multiply(self.free_map._map, self.map_representation._map)
 
@@ -273,6 +267,20 @@ class ConsumerBot:
             return plan[-1]
         else:
             return ''
+
+    def evaluate_bomb(self, tiles_list):
+        # IN - Tile_list
+        # OUT - Closes tile base on map_representation -> mask_bomb
+        tlist = ([t for t in tiles_list if self.game_state.is_in_bounds(t)])
+        if not tlist:
+            return ([])
+        best_tile = ()
+        best_weight = 0
+        for tile in tlist:
+            tile_value = self.map_representation.value_at_point(tile)
+            if tile_value > best_weight:
+                best_tile = tile
+        return best_tile
 
     @staticmethod
     def get_cross_tiles(tile: Tuple[int, int]) -> List[Tuple[int, int]]:
