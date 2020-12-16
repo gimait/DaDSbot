@@ -34,6 +34,7 @@ class ConsumerBot:
         self.previous_plan = None
 
         # plan management
+        self.danger_status = False
         self.keep_plan = 0
         self.planned_actions = []
         self.full_map_prev = ['']
