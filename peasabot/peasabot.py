@@ -52,7 +52,7 @@ class Agent(ConsumerBot):
 
     def _next_move_killer(self):
         # Agent possibilities
-        danger_zone, danger_status = self.bomb_management_map.is_in_danger()
+        danger_zone, danger_status = self.bomb_management_map.is_in_danger_at(self.location)
         ammo_tile, ammo_status = self.is_ammo_avail()
         treasure_tile, treasure_status = self.is_treasure_avail()
         kill_tiles, kill_status = self.is_killing_an_option()

@@ -383,8 +383,13 @@ class BombAreaMap(GrMap):
         self.danger_zone = np.where(danger_map > 0, 0, 1)
         self.all_map = np.where(all_map > 0, 0, 1)
 
-    def is_in_danger(self):
-        return self.danger_zone, self.in_danger
+    def is_in_danger_at(self, tile: Tuple[int,int]):
+        col = tile[0]
+        row = tile[1]
+        if self.danger_zone[col][row] == 1:
+            return self.danger_zone, False
+        else:
+            return self.danger_zone, True
 
     def get_mask_at_step(self, step: int) -> np.array:
         mask = np.zeros(self.size)
