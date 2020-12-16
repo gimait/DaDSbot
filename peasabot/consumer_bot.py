@@ -33,6 +33,9 @@ class ConsumerBot:
         self.bomb_management_map = BombAreaMap(self.size, danger_thresh=bomb_tick_threshold)
         self.next_plan = None
 
+        # Game phase
+        self.game_phase = 'start'
+
         # plan management
         self.danger_status = False
         self.keep_plan = 0
@@ -95,6 +98,17 @@ class ConsumerBot:
                         self.ore_counter[i].got_hit()
                         bomb.counted = True
                 i += 1
+        self.game_phase = self.update_gamephase()
+
+    def update_gamephase(self):
+        points_in_blocks = 2 * len(self.game_state.soft_blocks) + 10 * len(self.game_state.ore_blocks) # ~70 points
+        #self.hp
+        pointsDiff = self.reward
+
+        if self.hp <= 2 or points_in_blocks <= 30:
+            return "end"
+        else:
+            return "start"
 
     def get_closest_item(self, item):
         # BASE Find the closest of the item type
