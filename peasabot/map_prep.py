@@ -81,9 +81,11 @@ class DistanceMap(GrMap):
         # Run basic distance with dilation operation
         (self.accessible_area, self._map,
          self.distance_penalty_map, self.accessible_area_mask) = self._calculate_steps(basemap, self.player_pos)
+
+        ore_free_map = basemap.copy()
         for block in self.state.ore_blocks:
-            basemap[block] = 0
-        (_, _, self.ore_penalty_map, _) = self._calculate_steps(basemap, self.player_pos)
+            ore_free_map[block] = 0
+        (_, _, self.ore_penalty_map, _) = self._calculate_steps(ore_free_map, self.player_pos)
 
     def _calculate_steps(self, base_map: np.array, center: Tuple[int, int]) -> Tuple[int, np.array, np.array, np.array]:
         """ Expand value from center.
