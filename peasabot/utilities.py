@@ -2,6 +2,26 @@
 Utility functions
 """
 
+from typing import Optional, Tuple
+
+class OreCounter:
+    __slots__ = [
+        "counter",
+        "position"
+    ]
+    def __init__(self, position: Tuple[int, int], counter: Optional[int] = 3):
+        self.counter = counter
+        self.position = position
+
+    def __eq__(self, other):
+        if isinstance(other, OreCounter):
+            return self.position == other.position
+        else:
+            return self.position == other
+
+    def got_hit(self):
+        self.counter -= 1
+
 
 def get_opponents(pid, players):
     return [_pos for (_id, _pos) in players if pid != _id]

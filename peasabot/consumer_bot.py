@@ -10,7 +10,7 @@ from coderone.dungeon.agent import GameState, PlayerState
 import numpy as np
 
 from .map_prep import BombAreaMap, DistanceMap, FreedomMap, TargetMap
-from .utilities import get_opponents
+from .utilities import get_opponents, OreCounter
 
 
 class ConsumerBot:
@@ -36,7 +36,7 @@ class ConsumerBot:
         self.planned_actions = []
         self.full_map_prev = None
         self.substrategy = 1
-        self.current_bombs = []
+        self.ore_counter = None
 
         # Attributes updated in the tick
         self.game_state = None  # Whole game_state
@@ -76,6 +76,22 @@ class ConsumerBot:
         self.map_representation.update(game_state, player_state.location, player_state.id, mask=self.bomb_management_map.danger_zone)
         self.emergency_map.update(game_state, player_state.location, player_state.id)
 
+        # Initialize and update ores
+        current_ores = game_state.ore_blocks
+        if self.ore_counter is None:
+            self.ore_counter = [OreCounter(pos) for pos in current_ores]
+
+        i = 0
+        while i < len(self.ore_counter):
+            if self.ore_counter[i] not in current_ores:
+                del self.ore_counter[i]
+            else:
+                for bomb in self.bomb_management_map.bombs:
+                    if not bomb.counted and bomb._map[self.ore_counter[i].position]:
+                        self.ore_counter[i].got_hit()
+                        bomb.counted = True
+                i += 1
+
     def get_closest_item(self, item):
         distance = 999  # here check with the value of the no possible from the value_at_point
         tile = None
@@ -87,7 +103,9 @@ class ConsumerBot:
         return tile
 
     def get_best_point_for_bomb(self):
-        optimal_points = np.multiply(self.map_representation.distance_penalty_map, self.bomb_target_map._map)
+        optimal_points = np.multiply(self.free_map._map,
+                                      np.multiply(self.map_representation.distance_penalty_map,
+                                                  self.bomb_target_map._map))
         return np.unravel_index(optimal_points.argmax(), optimal_points.shape)
 
     def get_freedom_tiles(self):
@@ -237,6 +255,21 @@ class ConsumerBot:
         status = (True if bomb_tile else False)
         return bomb_tile, status
 
+    def is_ore_hot(self):
+        hot_ore = None
+        best_weight = -1
+        possibility_map = np.multiply(self.map_representation.ore_penalty_map,
+                                      self.bomb_target_map._map)
+        for ore in self.ore_counter:
+            if ore.counter < 3:
+                if possibility_map[ore.position] > best_weight:
+                    hot_ore = ore.position
+                    best_weight = possibility_map[ore.position]
+        if hot_ore is None:
+            return (), False
+
+        return hot_ore, True
+
     def get_best_blocking_tile(self): #, tile_list: List[Tuple[int, int]]) -> int:
         safety_map = np.multiply(self.free_map._map, self.map_representation._map)
 
@@ -246,31 +279,6 @@ class ConsumerBot:
             return plan[-1]
         else:
             return ''
-
-
-    def is_step_safe(self, step):
-        if not self.current_bombs:
-            return True
-
-        future_pos = ()
-        if step == 'd':
-            future_pos = (self.location[0], self.location[1] - 1)
-        elif step == 'l':
-            future_pos = (self.location[0] - 1, self.location[1])
-        elif step == 'u':
-            future_pos = (self.location[0], self.location[1] + 1)
-        elif step == 'r':
-            future_pos = (self.location[0] + 1, self.location[1])
-        else:
-            return True
-
-        if not self.game_state.is_in_bounds(future_pos) and self.map_representation.accessible_area[future_pos]:
-            return False
-
-        tte = self.current_bombs[0].time_to_explode(self.game_state.tick_number)
-        if tte <= 2 and self.current_bombs[0]._map[future_pos] < 0:
-            return False
-        return True
 
     @staticmethod
     def get_cross_tiles(tile: Tuple[int, int]) -> List[Tuple[int, int]]:

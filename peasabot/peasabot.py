@@ -8,7 +8,7 @@ import time
 
 MAX_BOMB = 5  # Don't pick up more
 MIN_BOMB = 1  # Don't place bomb
-BOMB_TICK_THRESHOLD = 30  # Added time to block the tile for future bombs --> Planner
+BOMB_TICK_THRESHOLD = 10  # Added time to block the tile for future bombs --> Planner
 CORNER_THRESH = 30  # Threshold that indicates when a spot has a very low degree of freedom
 ATTACK_THRESH = 70
 DANGER_THRESH = 0  # <-- NOT USED
@@ -56,6 +56,7 @@ class Agent(ConsumerBot):
         ammo_tile, ammo_status = self.is_ammo_avail()
         treasure_tile, treasure_status = self.is_treasure_avail()
         kill_tiles, kill_status = self.is_killing_an_option()
+        ore_tile, ore_status = self.is_ore_hot()
 
         # 1 Avoid Danger
         if danger_status:
@@ -96,8 +97,6 @@ class Agent(ConsumerBot):
             free_tile = self.get_freedom_tiles()
             plan, _ = self.plan_to_tile(free_tile)
 
-        if plan and not self.is_step_safe(plan[-1]):
-            return ['']
         return plan
 
     def reset(self):
