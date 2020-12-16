@@ -36,7 +36,7 @@ class ConsumerBot:
         # plan management
         self.keep_plan = 0
         self.planned_actions = []
-        self.full_map_prev = None
+        self.full_map_prev = ['']
         self.substrategy = 1
         self.ore_counter = None
 

@@ -24,7 +24,7 @@ class Agent(ConsumerBot):
         t0 = time.perf_counter()
 
         full_map = self.print_map(game_state)
-        updated_map = (self.full_map_prev == full_map if self.full_map_prev is not None else True)
+        updated_map = (self.full_map_prev != full_map)
         # Yes I debug with a print(updated_map)
         if not self.planned_actions:
             self.update_state(game_state, player_state)
@@ -51,7 +51,8 @@ class Agent(ConsumerBot):
 
         self.full_map_prev = full_map  # Update the map for checking if change in the next tick
         self.last_move = action
-
+        if DEBUG:
+            print('ACtion ' + str(action))
         dt = time.perf_counter() - t0
         if dt > 0.05:
             print("Cuidao!! {}".format(dt))
@@ -70,9 +71,9 @@ class Agent(ConsumerBot):
         plan= ['']
         # TANGENTIAL Behaviours Top priorities.
         if danger_status:
+            plan, _ = self.plan_to_safest_area(danger_zone)
             if DEBUG:
                 print('DANGER status')
-            plan, _ = self.plan_to_safest_area(danger_zone)
         elif self.previous_plan == "run":
             d = danger_zone if self.bomb_management_map.last_placed_bomb is None \
                 else danger_zone - self.bomb_management_map.last_placed_bomb._map
