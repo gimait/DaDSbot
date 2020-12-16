@@ -31,7 +31,7 @@ class ConsumerBot:
         self.free_map = FreedomMap(self.size)
         self.bomb_target_map = TargetMap(self.size)
         self.bomb_management_map = BombAreaMap(self.size, danger_thresh=bomb_tick_threshold)
-        self.previous_plan = None
+        self.next_plan = None
 
         # plan management
         self.danger_status = False
@@ -43,6 +43,7 @@ class ConsumerBot:
 
         # Attributes updated in the tick
         self.game_state = None  # Whole game_state
+        self.diff_tick = None
         self.location = None  # Location of your player
         self.ammo = None
         self.bombs = None
