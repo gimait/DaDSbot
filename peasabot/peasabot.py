@@ -62,19 +62,22 @@ class Agent(ConsumerBot):
         if danger_status:
             plan, _ = self.plan_to_safest_area(danger_zone)
         # 2 Pick up ammo if less than MAX
-        elif ammo_status and self.ammo < MAX_BOMB:
-            plan, _ = self.plan_to_tile(ammo_tile)
-        # 3 Pick up treasures, they are also good
-        elif treasure_status:
-            plan, _ = self.plan_to_tile(treasure_tile)
         # 4 If we finished a plan, get away
         elif self.previous_plan == "run":
             d = danger_zone if self.bomb_management_map.last_placed_bomb is None \
                 else danger_zone - self.bomb_management_map.last_placed_bomb._map
             plan, _ = self.path_to_freest_area(d) # <- change for freest area which multiplies for the accesible_area_mask
             self.previous_plan = None
-
         # 4 Plan for killing, finish it if started
+        elif ammo_status and self.ammo < MAX_BOMB:
+            plan, _ = self.plan_to_tile(ammo_tile)
+        # 3 Pick up treasures and mine ores, they are also good
+        elif ore_status:
+            plan, connected = self.plan_to_tile(ore_tile)
+            if connected:
+                plan.append('p')
+        elif treasure_status:
+            plan, _ = self.plan_to_tile(treasure_tile)
         elif (0 < self.free_map._map[self.opponent_tile] < ATTACK_THRESH) and \
              (self.previous_plan == "kill" or kill_status):
             plan, connected = self.plan_to_tile(kill_tiles)

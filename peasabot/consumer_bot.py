@@ -256,19 +256,13 @@ class ConsumerBot:
         return bomb_tile, status
 
     def is_ore_hot(self):
-        hot_ore = None
-        best_weight = -1
-        possibility_map = np.multiply(self.map_representation.ore_penalty_map,
-                                      self.bomb_target_map._map)
-        for ore in self.ore_counter:
-            if ore.counter < 3:
-                if possibility_map[ore.position] > best_weight:
-                    hot_ore = ore.position
-                    best_weight = possibility_map[ore.position]
-        if hot_ore is None:
-            return (), False
-
-        return hot_ore, True
+        tiles_list = []
+        for tile in [ore.position for ore in self.ore_counter]:
+            t = self.get_cross_tiles(tile)
+            tiles_list = tiles_list + t
+        bomb_tile = self.evaluate_bomb(tiles_list)
+        status = (True if bomb_tile else False)
+        return bomb_tile, status
 
     def get_best_blocking_tile(self): #, tile_list: List[Tuple[int, int]]) -> int:
         safety_map = np.multiply(self.free_map._map, self.map_representation._map)
