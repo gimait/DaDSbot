@@ -126,7 +126,7 @@ class ConsumerBot:
             tile_value = _map[tile[0]]
             if tile_value > best_weight:
                 best_tile = tile[0]
-            if tile_value > 0:
+            if tile_value > 0 and self.game_state.is_in_bounds(tile[1]):
                 snd_tile_value = _map[tile[1]]
                 if tile_value > best_weight:
                     best_tile = tile[1]
@@ -149,7 +149,7 @@ class ConsumerBot:
         if danger_zone is not None:
             safety_map = np.multiply(danger_zone,
                                      np.multiply(self.free_map._map,
-                                                 self.map_representation.distance_penalty_map))
+                                                 self.map_representation._map))
         else:
             safety_map = np.multiply(self.free_map._map, self.map_representation._map)
         safest_tile = np.unravel_index(safety_map.argmax(), safety_map.shape)

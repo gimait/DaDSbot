@@ -8,7 +8,7 @@ import time
 
 MAX_BOMB = 8  # Don't pick up more
 MIN_BOMB = 1  # Don't place bomb
-BOMB_TICK_THRESHOLD = 15  # Added time to block the tile for future bombs --> Planner
+BOMB_TICK_THRESHOLD = 10  # Added time to block the tile for future bombs --> Planner
 CORNER_THRESH = 30  # Threshold that indicates when a spot has a very low degree of freedom
 ATTACK_THRESH = 70
 DANGER_THRESH = 0  # <-- NOT USED

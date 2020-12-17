@@ -157,6 +157,13 @@ class TargetMap(GrMap):
         if mask is not None:
             basemap += mask - 1
         self._map = self._get_bomb_ranges(basemap)
+        for block in self.state.ore_blocks:
+            self._map[block] = 0
+        for block in self.state.soft_blocks:
+            self._map[block] = 0
+        for block in self.state.indestructible_blocks:
+            self._map[block] = 0
+        print(self._map)
 
     def _get_bomb_ranges(self, _map: np.array) -> np.array:
         """Get map with number of blocks affected by bomb in each position.
