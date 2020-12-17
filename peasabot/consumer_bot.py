@@ -115,15 +115,21 @@ class ConsumerBot:
     def evaluate_bomb(self, tiles_list):
         # Input a list of tiles to evaluate Outputs the best tile to place a bomb
         # First it only considers the closest distance if any better strategy is expected here
-        tlist = ([t for t in tiles_list if self.game_state.is_in_bounds(t)])
+        tlist = ([t for t in tiles_list if self.game_state.is_in_bounds(t[0])])
         if not tlist:
             return([])
         best_tile = ()
         best_weight = 0
+        _map = np.multiply(self.map_representation._map,
+                           self.bomb_management_map.opponent)
         for tile in tlist:
-            tile_value = self.map_representation.value_at_point(tile)
+            tile_value = _map[tile[0]]
             if tile_value > best_weight:
-                best_tile = tile
+                best_tile = tile[0]
+            if tile_value > 0:
+                snd_tile_value = _map[tile[1]]
+                if tile_value > best_weight:
+                    best_tile = tile[1]
         return best_tile
 
     def path_to_freest_area(self, danger_zone: Optional[BombAreaMap] = None):
@@ -249,7 +255,7 @@ class ConsumerBot:
     def is_killing_an_option(self):
         tiles_list = []
         for opponent_tile in get_opponents(self.player_state.id, self.game_state._players):
-            t = self.get_cross_tiles(opponent_tile)
+            t = self.get_big_cross_tiles(opponent_tile)
             tiles_list = tiles_list + t
         bomb_tile = self.evaluate_bomb(tiles_list)
         status = (True if bomb_tile else False)
@@ -258,7 +264,7 @@ class ConsumerBot:
     def is_ore_hot(self):
         tiles_list = []
         for tile in [ore.position for ore in self.ore_counter if ore.counter < 3]:
-            t = self.get_cross_tiles(tile)
+            t = self.get_big_cross_tiles(tile)
             tiles_list = tiles_list + t
         bomb_tile = self.evaluate_bomb(tiles_list)
         status = (True if bomb_tile else False)
@@ -281,6 +287,16 @@ class ConsumerBot:
         new_tile_u = (tile[0], tile[1] - 1)
         new_tile_l = (tile[0] + 1, tile[1])
         new_tile_d = (tile[0], tile[1] + 1)
+        list_tiles = [new_tile_r, new_tile_u, new_tile_l, new_tile_d]
+        return list_tiles
+
+    @staticmethod
+    def get_big_cross_tiles(tile: Tuple[int, int]) -> List[Tuple[int, int]]:
+        """ From a given tile outputs the neighbour tiles in the 4 directions """
+        new_tile_r = ((tile[0] - 1, tile[1]), (tile[0] - 2, tile[1]))
+        new_tile_u = ((tile[0], tile[1] - 1), (tile[0], tile[1] - 2))
+        new_tile_l = ((tile[0] + 1, tile[1]), (tile[0] + 2, tile[1]))
+        new_tile_d = ((tile[0], tile[1] + 1), (tile[0], tile[1] + 2))
         list_tiles = [new_tile_r, new_tile_u, new_tile_l, new_tile_d]
         return list_tiles
 
