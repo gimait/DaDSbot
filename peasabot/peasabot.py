@@ -6,7 +6,7 @@ from coderone.dungeon.agent import GameState, PlayerState
 from .consumer_bot import ConsumerBot
 import time
 
-MAX_BOMB = 5  # Don't pick up more
+MAX_BOMB = 8  # Don't pick up more
 MIN_BOMB = 1  # Don't place bomb
 BOMB_TICK_THRESHOLD = 15  # Added time to block the tile for future bombs --> Planner
 CORNER_THRESH = 30  # Threshold that indicates when a spot has a very low degree of freedom
@@ -27,10 +27,10 @@ class Agent(ConsumerBot):
         # Yes I debug with a print(updated_map)
         if not self.planned_actions:
             self.update_state(game_state, player_state)
-            self.planned_actions = self._next_move_killer()
+            self.planned_actions = self.next_move_smarter()
         elif updated_map:
             self.update_state(game_state, player_state)
-            self.planned_actions = self._next_move_killer()
+            self.planned_actions = self.next_move_smarter()
         else:  # Map is not updated and there are planned actions
             pass
         action = (self.planned_actions.pop(0) if self.planned_actions else '')
@@ -121,11 +121,11 @@ class Agent(ConsumerBot):
                 print('DANGER status ' + str(plan))
                 print(danger_zone)
                 print(danger_zone[self.location[0]][self.location[1]])
-        elif self.next_plan == "run":
+        elif self.previous_plan == "run":
             d = danger_zone if self.bomb_management_map.last_placed_bomb is None \
                 else danger_zone - self.bomb_management_map.last_placed_bomb._map
             plan, _ = self.path_to_freest_area(d)  # Uses the emergency planner
-            self.next_plan = None
+            self.previous_plan = None
             self.keep_plan = len(plan)
             if DEBUG:
                 print('RUN ' + str(plan))
@@ -136,10 +136,10 @@ class Agent(ConsumerBot):
                 if DEBUG:
                     print('AMMO I GO ' + str(plan))
             # FARM
-            elif treasure_status or self.ammo > MIN_BOMB:
+            elif self.ammo > 0:
                 # BOMB Points
                 # 1  point to pick up is always good
-                if ore_status and (len(self.game_state.soft_blocks) + len(self.game_state.ore_blocks) > 0):
+                if ore_status and self.ammo > MIN_BOMB and (len(self.game_state.soft_blocks) + len(self.game_state.ore_blocks) > 0):
                     # 2 Farm a hot ORE -> One bomb left
                     plan, connected = self.plan_to_tile(ore_tile)
                     if connected:
@@ -159,10 +159,10 @@ class Agent(ConsumerBot):
                     if connected:
                         plan.append('p')
                 # 3 Place a bomb in a good place if you have bombs
-                elif self.next_plan == "loot":
+                elif self.previous_plan == "loot" or self.ammo > MIN_BOMB:
                     best_point_for_bomb = self.get_best_point_for_bomb()
                     plan, connected = self.plan_to_tile(best_point_for_bomb)
-                    self.next_plan = (None if not plan else "loot")
+                    self.previous_plan = (None if not plan else "loot")
                     if connected:
                         plan.append('p')
                         self.keep_plan = len(plan)
