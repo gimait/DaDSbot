@@ -257,7 +257,7 @@ class ConsumerBot:
 
     def is_ore_hot(self):
         tiles_list = []
-        for tile in [ore.position for ore in self.ore_counter]:
+        for tile in [ore.position for ore in self.ore_counter if ore.counter < 3]:
             t = self.get_cross_tiles(tile)
             tiles_list = tiles_list + t
         bomb_tile = self.evaluate_bomb(tiles_list)

@@ -8,7 +8,7 @@ import time
 
 MAX_BOMB = 5  # Don't pick up more
 MIN_BOMB = 1  # Don't place bomb
-BOMB_TICK_THRESHOLD = 10  # Added time to block the tile for future bombs --> Planner
+BOMB_TICK_THRESHOLD = 15  # Added time to block the tile for future bombs --> Planner
 CORNER_THRESH = 30  # Threshold that indicates when a spot has a very low degree of freedom
 ATTACK_THRESH = 70
 DANGER_THRESH = 0  # <-- NOT USED
@@ -137,32 +137,41 @@ class Agent(ConsumerBot):
                     print('AMMO I GO ' + str(plan))
             # FARM
             elif treasure_status or self.ammo > MIN_BOMB:
+                # BOMB Points
                 # 1  point to pick up is always good
-                if treasure_status:
+                if ore_status and (len(self.game_state.soft_blocks) + len(self.game_state.ore_blocks) > 0):
+                    # 2 Farm a hot ORE -> One bomb left
+                    plan, connected = self.plan_to_tile(ore_tile)
+                    if connected:
+                        plan.append('p')
+                        self.keep_plan = len(plan)
+                    if DEBUG:
+                        print('FARM - ORE  ' + str(plan))
+                elif treasure_status:
                     plan, _ = self.plan_to_tile(treasure_tile)
                     if DEBUG:
                         print('FARM - TREASURE  ' + str(plan))
-                # BOMB Points
-                elif self.ammo > MIN_BOMB and (len(self.game_state.soft_blocks) + len(self.game_state.ore_blocks) > 0):
-                    # 2 Farm a hot ORE -> One bomb left
-                    if ore_status:
-                        plan, connected = self.plan_to_tile(ore_tile)
-                        if connected:
-                            plan.append('p')
-                            self.keep_plan = len(plan)
-                        if DEBUG:
-                            print('FARM - ORE  ' + str(plan))
-
-                    # 3 Place a bomb in a good place if you have bombs
-                    elif self.next_plan == "loot" or self.ammo > MIN_BOMB:
-                        best_point_for_bomb = self.get_best_point_for_bomb()
-                        plan, connected = self.plan_to_tile(best_point_for_bomb)
-                        self.next_plan = (None if not plan else "loot")
-                        if connected:
-                            plan.append('p')
-                            self.keep_plan = len(plan)
-                        if DEBUG:
-                            print('FARM - LOOT  ' + str(plan))
+                # 3 Go for a kill
+                elif (0 < self.free_map._map[self.opponent_tile] < ATTACK_THRESH) and \
+                    (self.previous_plan == "kill" or kill_status):
+                    plan, connected = self.plan_to_tile(kill_tiles)
+                    self.previous_plan = (None if not plan else "kill")
+                    if connected:
+                        plan.append('p')
+                # 3 Place a bomb in a good place if you have bombs
+                elif self.next_plan == "loot":
+                    best_point_for_bomb = self.get_best_point_for_bomb()
+                    plan, connected = self.plan_to_tile(best_point_for_bomb)
+                    self.next_plan = (None if not plan else "loot")
+                    if connected:
+                        plan.append('p')
+                        self.keep_plan = len(plan)
+                    if DEBUG:
+                        print('FARM - LOOT  ' + str(plan))
+        # Last Find a good place to wait
+        else:
+            free_tile = self.get_freedom_tiles()
+            plan, _ = self.plan_to_tile(free_tile)
 
         return plan
 
