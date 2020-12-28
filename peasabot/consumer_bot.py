@@ -2,7 +2,6 @@
 Consumer bot
 """
 
-import random
 from typing import List, Optional, Tuple
 
 from coderone.dungeon.agent import GameState, PlayerState
@@ -73,7 +72,8 @@ class ConsumerBot:
         self.bomb_management_map.update(game_state, player_state.location)
         self.free_map.update(game_state, player_state.location, player_state.id)
         self.bomb_target_map.update(game_state, player_state.location, player_state.id)
-        self.map_representation.update(game_state, player_state.location, player_state.id, mask=self.bomb_management_map.danger_zone)
+        self.map_representation.update(game_state, player_state.location, player_state.id,
+                                       mask=self.bomb_management_map.danger_zone)
         self.emergency_map.update(game_state, player_state.location, player_state.id)
 
         # Initialize and update ores
@@ -104,8 +104,8 @@ class ConsumerBot:
 
     def get_best_point_for_bomb(self):
         optimal_points = np.multiply(self.free_map._map,
-                                      np.multiply(self.map_representation.distance_penalty_map,
-                                                  self.bomb_target_map._map))
+                                     np.multiply(self.map_representation.distance_penalty_map,
+                                                 self.bomb_target_map._map))
         return np.unravel_index(optimal_points.argmax(), optimal_points.shape)
 
     def get_freedom_tiles(self):
@@ -127,7 +127,6 @@ class ConsumerBot:
             if tile_value > best_weight:
                 best_tile = tile[0]
             if tile_value > 0 and self.game_state.is_in_bounds(tile[1]):
-                snd_tile_value = _map[tile[1]]
                 if tile_value > best_weight:
                     best_tile = tile[1]
         return best_tile
@@ -175,7 +174,7 @@ class ConsumerBot:
 
         return plan_w_bomb_breaks, connected
 
-    def greedy_search(self, goal_tile, eval_map, timeout=30): # 20
+    def greedy_search(self, goal_tile, eval_map, timeout=30):  # 20
         tiles = []
         plan = []
         ite = 0
@@ -270,7 +269,7 @@ class ConsumerBot:
         status = (True if bomb_tile else False)
         return bomb_tile, status
 
-    def get_best_blocking_tile(self): #, tile_list: List[Tuple[int, int]]) -> int:
+    def get_best_blocking_tile(self):  # , tile_list: List[Tuple[int, int]]) -> int:
         safety_map = np.multiply(self.free_map._map, self.map_representation._map)
 
         safest_tile = np.unravel_index(safety_map.argmax(), safety_map.shape)

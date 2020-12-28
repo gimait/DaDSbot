@@ -14,6 +14,7 @@ ATTACK_THRESH = 70
 DANGER_THRESH = 0  # <-- NOT USED
 DEBUG = True
 
+
 class Agent(ConsumerBot):
     """ Agent bot."""
     def __init__(self):
@@ -36,7 +37,8 @@ class Agent(ConsumerBot):
         action = (self.planned_actions.pop(0) if self.planned_actions else '')
 
         if action == 'p':
-            if self.free_map._map[self.location] < CORNER_THRESH and self.bomb_management_map.all_map[self.location] < 1:
+            if (self.free_map._map[self.location] < CORNER_THRESH and
+                self.bomb_management_map.all_map[self.location] < 1):
                 if not self.planned_actions:
                     action = ''
                 else:
@@ -67,7 +69,7 @@ class Agent(ConsumerBot):
         elif self.previous_plan == "run":
             d = danger_zone if self.bomb_management_map.last_placed_bomb is None \
                 else danger_zone - self.bomb_management_map.last_placed_bomb._map
-            plan, _ = self.path_to_freest_area(d) # <- change for freest area which multiplies for the accesible_area_mask
+            plan, _ = self.path_to_freest_area(d)  # <- change for freest area which multiplies for the accesible_area_mask
             self.previous_plan = None
         # 4 Plan for killing, finish it if started
         elif ammo_status and self.ammo < MAX_BOMB:
@@ -139,7 +141,8 @@ class Agent(ConsumerBot):
             elif self.ammo > 0:
                 # BOMB Points
                 # 1  point to pick up is always good
-                if ore_status and self.ammo > MIN_BOMB and (len(self.game_state.soft_blocks) + len(self.game_state.ore_blocks) > 0):
+                if ore_status and self.ammo > MIN_BOMB and (len(self.game_state.soft_blocks) +
+                                                            len(self.game_state.ore_blocks) > 0):
                     # 2 Farm a hot ORE -> One bomb left
                     plan, connected = self.plan_to_tile(ore_tile)
                     if connected:
@@ -153,7 +156,7 @@ class Agent(ConsumerBot):
                         print('FARM - TREASURE  ' + str(plan))
                 # 3 Go for a kill
                 elif (0 < self.free_map._map[self.opponent_tile] < ATTACK_THRESH) and \
-                    (self.previous_plan == "kill" or kill_status):
+                     (self.previous_plan == "kill" or kill_status):
                     plan, connected = self.plan_to_tile(kill_tiles)
                     self.previous_plan = (None if not plan else "kill")
                     if connected:
@@ -174,7 +177,6 @@ class Agent(ConsumerBot):
             plan, _ = self.plan_to_tile(free_tile)
 
         return plan
-
 
     def reset(self):
         pass
