@@ -15,7 +15,7 @@ import numpy as np
 import torch
 
 from .memory_buffer import MemoryBuffer, ShortTermMemoryBuffer
-from DaDSbot.misc.plots import plot_graph
+from .misc.plots import plot_graph
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

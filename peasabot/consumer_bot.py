@@ -2,7 +2,6 @@
 Consumer bot
 """
 
-import random
 from typing import List, Optional, Tuple
 
 from coderone.dungeon.agent import GameState, PlayerState
@@ -80,7 +79,8 @@ class ConsumerBot:
         self.bomb_management_map.update(game_state, player_state.location)
         self.free_map.update(game_state, player_state.location, player_state.id)
         self.bomb_target_map.update(game_state, player_state.location, player_state.id)
-        self.map_representation.update(game_state, player_state.location, player_state.id, mask=self.bomb_management_map.danger_zone)
+        self.map_representation.update(game_state, player_state.location, player_state.id,
+                                       mask=self.bomb_management_map.danger_zone)
         self.emergency_map.update(game_state, player_state.location, player_state.id)
 
         # Initialize and update ores
@@ -126,14 +126,33 @@ class ConsumerBot:
         # FARM Used in LOOT state to select the closest tile to place a bomb
         # Cross of the map_representation with bomb_mask with distance penalty. crossed by free?
         optimal_points = np.multiply(self.free_map._map,
-                                      np.multiply(self.map_representation.distance_penalty_map,
-                                                  self.bomb_target_map._map))
+                                     np.multiply(self.map_representation.distance_penalty_map,
+                                                 self.bomb_target_map._map))
         return np.unravel_index(optimal_points.argmax(), optimal_points.shape)
 
     def get_freedom_tiles(self):
         # SURVIVE Change area to safer
         freedom_tiles = np.multiply(self.map_representation.distance_penalty_map, self.free_map._map)
         return np.unravel_index(freedom_tiles.argmax(), freedom_tiles.shape)
+
+    def evaluate_bomb(self, tiles_list):
+        # Input a list of tiles to evaluate Outputs the best tile to place a bomb
+        # First it only considers the closest distance if any better strategy is expected here
+        tlist = ([t for t in tiles_list if self.game_state.is_in_bounds(t[0])])
+        if not tlist:
+            return([])
+        best_tile = ()
+        best_weight = 0
+        _map = np.multiply(self.map_representation._map,
+                           self.bomb_management_map.opponent)
+        for tile in tlist:
+            tile_value = _map[tile[0]]
+            if tile_value > best_weight:
+                best_tile = tile[0]
+            if tile_value > 0 and self.game_state.is_in_bounds(tile[1]):
+                if tile_value > best_weight:
+                    best_tile = tile[1]
+        return best_tile
 
     def path_to_freest_area(self, danger_zone: Optional[BombAreaMap] = None):
         # take out unsafe tiles from free_map. Chooses the most free accesible area
@@ -152,7 +171,7 @@ class ConsumerBot:
         if danger_zone is not None:
             safety_map = np.multiply(danger_zone,
                                      np.multiply(self.free_map._map,
-                                                 self.map_representation.distance_penalty_map))
+                                                 self.map_representation._map))
         else:
             safety_map = np.multiply(self.free_map._map, self.map_representation._map)
         safest_tile = np.unravel_index(safety_map.argmax(), safety_map.shape)
@@ -178,7 +197,7 @@ class ConsumerBot:
 
         return plan_w_bomb_breaks, connected
 
-    def greedy_search(self, goal_tile, eval_map, timeout=30): # 20
+    def greedy_search(self, goal_tile, eval_map, timeout=30):  # 20
         tiles = []
         plan = []
         ite = 0
@@ -258,7 +277,7 @@ class ConsumerBot:
     def is_killing_an_option(self):
         tiles_list = []
         for opponent_tile in get_opponents(self.player_state.id, self.game_state._players):
-            t = self.get_cross_tiles(opponent_tile)
+            t = self.get_big_cross_tiles(opponent_tile)
             tiles_list = tiles_list + t
         bomb_tile = self.evaluate_bomb(tiles_list)
         status = (True if bomb_tile else False)
@@ -266,15 +285,14 @@ class ConsumerBot:
 
     def is_ore_hot(self):
         tiles_list = []
-        for tile in [ore.position for ore in self.ore_counter]:
-            t = self.get_cross_tiles(tile)
+        for tile in [ore.position for ore in self.ore_counter if ore.counter < 3]:
+            t = self.get_big_cross_tiles(tile)
             tiles_list = tiles_list + t
         bomb_tile = self.evaluate_bomb(tiles_list)
         status = (True if bomb_tile else False)
         return bomb_tile, status
 
-    # NOT USED
-    def get_best_blocking_tile(self): #, tile_list: List[Tuple[int, int]]) -> int:
+    def get_best_blocking_tile(self):  # , tile_list: List[Tuple[int, int]]) -> int:
         safety_map = np.multiply(self.free_map._map, self.map_representation._map)
 
         safest_tile = np.unravel_index(safety_map.argmax(), safety_map.shape)
@@ -284,20 +302,6 @@ class ConsumerBot:
         else:
             return ''
 
-    def evaluate_bomb(self, tiles_list):
-        # IN - Tile_list
-        # OUT - Closes tile base on map_representation -> mask_bomb
-        tlist = ([t for t in tiles_list if self.game_state.is_in_bounds(t)])
-        if not tlist:
-            return ([])
-        best_tile = ()
-        best_weight = 0
-        for tile in tlist:
-            tile_value = self.map_representation.value_at_point(tile)
-            if tile_value > best_weight:
-                best_tile = tile
-        return best_tile
-
     @staticmethod
     def get_cross_tiles(tile: Tuple[int, int]) -> List[Tuple[int, int]]:
         """ From a given tile outputs the neighbour tiles in the 4 directions """
@@ -305,6 +309,16 @@ class ConsumerBot:
         new_tile_u = (tile[0], tile[1] - 1)
         new_tile_l = (tile[0] + 1, tile[1])
         new_tile_d = (tile[0], tile[1] + 1)
+        list_tiles = [new_tile_r, new_tile_u, new_tile_l, new_tile_d]
+        return list_tiles
+
+    @staticmethod
+    def get_big_cross_tiles(tile: Tuple[int, int]) -> List[Tuple[int, int]]:
+        """ From a given tile outputs the neighbour tiles in the 4 directions """
+        new_tile_r = ((tile[0] - 1, tile[1]), (tile[0] - 2, tile[1]))
+        new_tile_u = ((tile[0], tile[1] - 1), (tile[0], tile[1] - 2))
+        new_tile_l = ((tile[0] + 1, tile[1]), (tile[0] + 2, tile[1]))
+        new_tile_d = ((tile[0], tile[1] + 1), (tile[0], tile[1] + 2))
         list_tiles = [new_tile_r, new_tile_u, new_tile_l, new_tile_d]
         return list_tiles
 

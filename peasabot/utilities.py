@@ -4,11 +4,13 @@ Utility functions
 
 from typing import Optional, Tuple
 
+
 class OreCounter:
     __slots__ = [
         "counter",
         "position"
     ]
+
     def __init__(self, position: Tuple[int, int], counter: Optional[int] = 3):
         self.counter = counter
         self.position = position

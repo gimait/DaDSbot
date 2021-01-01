@@ -157,6 +157,13 @@ class TargetMap(GrMap):
         if mask is not None:
             basemap += mask - 1
         self._map = self._get_bomb_ranges(basemap)
+        for block in self.state.ore_blocks:
+            self._map[block] = 0
+        for block in self.state.soft_blocks:
+            self._map[block] = 0
+        for block in self.state.indestructible_blocks:
+            self._map[block] = 0
+        print(self._map)
 
     def _get_bomb_ranges(self, _map: np.array) -> np.array:
         """Get map with number of blocks affected by bomb in each position.
@@ -289,7 +296,7 @@ class BombArea(GrMap, TimeBomb):
             self.owned = owned
 
     def should_be_avoided(self, tick):
-        if self.time_to_explode(tick) < self.danger_thresh: #(self.affected_area / 4):
+        if self.time_to_explode(tick) < self.danger_thresh:  # (self.affected_area / 4):
             return True
         else:
             return False
@@ -383,7 +390,7 @@ class BombAreaMap(GrMap):
         self.danger_zone = np.where(danger_map > 0, 0, 1)
         self.all_map = np.where(all_map > 0, 0, 1)
 
-    def is_in_danger_at(self, tile: Tuple[int,int]):
+    def is_in_danger_at(self, tile: Tuple[int, int]):
         col = tile[0]
         row = tile[1]
         if self.danger_zone[col][row] == 1:
