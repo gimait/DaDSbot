@@ -30,15 +30,22 @@ class ConsumerBot:
         self.free_map = FreedomMap(self.size)
         self.bomb_target_map = TargetMap(self.size)
         self.bomb_management_map = BombAreaMap(self.size, danger_thresh=bomb_tick_threshold)
-        self.previous_plan = None
+        self.next_plan = None
 
+        # Game phase
+        self.game_phase = 'start'
+
+        # plan management
+        self.danger_status = False
+        self.keep_plan = 0
         self.planned_actions = []
-        self.full_map_prev = None
+        self.full_map_prev = ['']
         self.substrategy = 1
         self.ore_counter = None
 
         # Attributes updated in the tick
         self.game_state = None  # Whole game_state
+        self.diff_tick = None
         self.location = None  # Location of your player
         self.ammo = None
         self.bombs = None
@@ -91,9 +98,22 @@ class ConsumerBot:
                         self.ore_counter[i].got_hit()
                         bomb.counted = True
                 i += 1
+        self.game_phase = self.update_gamephase()
+
+    def update_gamephase(self):
+        points_in_blocks = 2 * len(self.game_state.soft_blocks) + 10 * len(self.game_state.ore_blocks) # ~70 points
+        #self.hp
+        pointsDiff = self.reward
+
+        if self.hp <= 2 or points_in_blocks <= 30:
+            return "end"
+        else:
+            return "start"
 
     def get_closest_item(self, item):
-        distance = 999  # here check with the value of the no possible from the value_at_point
+        # BASE Find the closest of the item type
+        # Map uses the map_representation that accounts for the bomb_mask(th).
+        distance = 999
         tile = None
         for i, item_tile in enumerate(item):
             d2p_ammo = self.map_representation.value_at_point(item_tile)
@@ -103,12 +123,15 @@ class ConsumerBot:
         return tile
 
     def get_best_point_for_bomb(self):
+        # FARM Used in LOOT state to select the closest tile to place a bomb
+        # Cross of the map_representation with bomb_mask with distance penalty. crossed by free?
         optimal_points = np.multiply(self.free_map._map,
                                      np.multiply(self.map_representation.distance_penalty_map,
                                                  self.bomb_target_map._map))
         return np.unravel_index(optimal_points.argmax(), optimal_points.shape)
 
     def get_freedom_tiles(self):
+        # SURVIVE Change area to safer
         freedom_tiles = np.multiply(self.map_representation.distance_penalty_map, self.free_map._map)
         return np.unravel_index(freedom_tiles.argmax(), freedom_tiles.shape)
 

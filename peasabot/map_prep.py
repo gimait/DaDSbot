@@ -404,3 +404,6 @@ class BombAreaMap(GrMap):
             if bomb.time_to_explode(step) == 0:
                 mask += bomb._map
         return np.where(mask > 0, 0, 1)
+
+    def set_danger_threshold(self, threshold):
+        self.danger_thresh = threshold

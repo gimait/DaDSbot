@@ -8,7 +8,7 @@ import time
 
 MAX_BOMB = 8  # Don't pick up more
 MIN_BOMB = 1  # Don't place bomb
-BOMB_TICK_THRESHOLD = 10  # Added time to block the tile for future bombs --> Planner
+BOMB_TICK_THRESHOLD = 15  # Added time to block the tile for future bombs --> Planner
 CORNER_THRESH = 30  # Threshold that indicates when a spot has a very low degree of freedom
 ATTACK_THRESH = 70
 DANGER_THRESH = 0  # <-- NOT USED
@@ -43,7 +43,7 @@ class Agent(ConsumerBot):
                     action = ''
                 else:
                     action = self.planned_actions.pop(0)
-            self.previous_plan = 'run'
+            self.next_plan = 'run'
 
         self.full_map_prev = full_map  # Update the map for checking if change in the next tick
         self.last_move = action
@@ -66,7 +66,7 @@ class Agent(ConsumerBot):
             plan, _ = self.plan_to_safest_area(danger_zone)
         # 2 Pick up ammo if less than MAX
         # 4 If we finished a plan, get away
-        elif self.previous_plan == "run":
+        elif self.next_plan == "run":
             d = danger_zone if self.bomb_management_map.last_placed_bomb is None \
                 else danger_zone - self.bomb_management_map.last_placed_bomb._map
             plan, _ = self.path_to_freest_area(d)  # <- change for freest area which multiplies for the accesible_area_mask
@@ -82,16 +82,16 @@ class Agent(ConsumerBot):
         elif treasure_status:
             plan, _ = self.plan_to_tile(treasure_tile)
         elif (0 < self.free_map._map[self.opponent_tile] < ATTACK_THRESH) and \
-             (self.previous_plan == "kill" or kill_status):
+             (self.next_plan == "kill" or kill_status):
             plan, connected = self.plan_to_tile(kill_tiles)
-            self.previous_plan = (None if not plan else "kill")
+            self.next_plan = (None if not plan else "kill")
             if connected:
                 plan.append('p')
         # 5 Place a bomb in a good place if you have bombs
-        elif self.previous_plan == "loot" or self.ammo > MIN_BOMB:
+        elif self.next_plan == "loot" or self.ammo > MIN_BOMB:
             best_point_for_bomb = self.get_best_point_for_bomb()
             plan, connected = self.plan_to_tile(best_point_for_bomb)
-            self.previous_plan = (None if not plan else "loot")
+            self.next_plan = (None if not plan else "loot")
             if connected:
                 plan.append('p')
         # 6 If there is still ammo around and we are bored, let's go catch it
