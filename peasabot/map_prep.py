@@ -163,7 +163,6 @@ class TargetMap(GrMap):
             self._map[block] = 0
         for block in self.state.indestructible_blocks:
             self._map[block] = 0
-        print(self._map)
 
     def _get_bomb_ranges(self, _map: np.array) -> np.array:
         """Get map with number of blocks affected by bomb in each position.

@@ -70,7 +70,7 @@ class Agent(ConsumerBot):
             d = danger_zone if self.bomb_management_map.last_placed_bomb is None \
                 else danger_zone - self.bomb_management_map.last_placed_bomb._map
             plan, _ = self.path_to_freest_area(d)  # <- change for freest area which multiplies for the accesible_area_mask
-            self.previous_plan = None
+            self.next_plan = None
         # 4 Plan for killing, finish it if started
         elif ammo_status and self.ammo < MAX_BOMB:
             plan, _ = self.plan_to_tile(ammo_tile)
@@ -123,11 +123,11 @@ class Agent(ConsumerBot):
                 print('DANGER status ' + str(plan))
                 print(danger_zone)
                 print(danger_zone[self.location[0]][self.location[1]])
-        elif self.previous_plan == "run":
+        elif self.next_plan == "run":
             d = danger_zone if self.bomb_management_map.last_placed_bomb is None \
                 else danger_zone - self.bomb_management_map.last_placed_bomb._map
             plan, _ = self.path_to_freest_area(d)  # Uses the emergency planner
-            self.previous_plan = None
+            self.next_plan = None
             self.keep_plan = len(plan)
             if DEBUG:
                 print('RUN ' + str(plan))
@@ -156,16 +156,16 @@ class Agent(ConsumerBot):
                         print('FARM - TREASURE  ' + str(plan))
                 # 3 Go for a kill
                 elif (0 < self.free_map._map[self.opponent_tile] < ATTACK_THRESH) and \
-                     (self.previous_plan == "kill" or kill_status):
+                     (self.next_plan == "kill" or kill_status):
                     plan, connected = self.plan_to_tile(kill_tiles)
-                    self.previous_plan = (None if not plan else "kill")
+                    self.next_plan = (None if not plan else "kill")
                     if connected:
                         plan.append('p')
                 # 3 Place a bomb in a good place if you have bombs
-                elif self.previous_plan == "loot" or self.ammo > MIN_BOMB:
+                elif self.next_plan == "loot" or self.ammo > MIN_BOMB:
                     best_point_for_bomb = self.get_best_point_for_bomb()
                     plan, connected = self.plan_to_tile(best_point_for_bomb)
-                    self.previous_plan = (None if not plan else "loot")
+                    self.next_plan = (None if not plan else "loot")
                     if connected:
                         plan.append('p')
                         self.keep_plan = len(plan)
