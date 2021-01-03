@@ -12,10 +12,11 @@ class ItemTimer(object):
         self.placement_step = step
         super().__init__(**kwargs)
 
-    def lapsed_time(self, current_step):
+    def lapsed_time(self, current_step: int) -> int:
         return current_step - self.placement_step
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
+        """ Blocks have unique positions (don't move), so they can be identified by position. """
         if isinstance(other, ItemTimer):
             return self.position == other.position
         else:

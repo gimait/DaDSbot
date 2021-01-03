@@ -13,6 +13,7 @@ from .utilities import get_opponents
 
 
 class GrMap(object):
+    """ Base class for map representations. """
     __slots__ = [
         "_map",
         "u_border",
@@ -33,7 +34,7 @@ class GrMap(object):
         self.v_border = np.full((self.size[0] + 2, 1), -1) if v_border is None else v_border
         super().__init__(**kwargs)
 
-    def _initialize(self, mask: Optional[np.array] = None):
+    def _initialize(self, mask: Optional[np.array] = None) -> None:
         self._map = np.zeros(self.state.size) + mask
 
     def update(self, state: GameState, player_pos: Tuple[int, int], player_id: int) -> None:
@@ -134,10 +135,11 @@ class DistanceMap(GrMap):
 
 
 class TargetMap(GrMap):
+    """ Map representing the number of blocks that would be affected by placing a bomb in each tile in the map."""
     __slots__ = [
     ]
 
-    def __init__(self, size):
+    def __init__(self, size: Tuple[int, int]) -> None:
         super().__init__(size, v_border=np.full((size[0] + 4, 1), -1))
 
     def update(self,
@@ -199,17 +201,19 @@ class TargetMap(GrMap):
 
 
 class FreedomMap(GrMap):
+    """ Map representing the degrees of freedom on each free tile on the map."""
     __slots__ = [
-        "mask"
+        "mask_0",
+        "mask_1"
     ]
 
     def __init__(self, size):
         super().__init__(size, u_border=np.full(size[1], 0), v_border=np.full((size[0] + 2, 1), 0))
-        self.mask0 = np.array(((0, 2, 0),
+        self.mask_0 = np.array(((0, 2, 0),
                                (2, 0, 2),
                                (0, 2, 0)))
 
-        self.mask1 = np.array(((1, 0, 1),
+        self.mask_1 = np.array(((1, 0, 1),
                                (0, 0, 0),
                                (1, 0, 1)))
 
@@ -231,7 +235,7 @@ class FreedomMap(GrMap):
             basemap += mask - 1
         else:
             for bomb in self.state.bombs:
-                basemap[bomb] = -1
+                basemap[bomb] = 0
         # for player in get_opponents(self.player_id, self.state._players):
         #     basemap[player] = 0
         self._map = self._grad_convolution(basemap)
@@ -244,9 +248,9 @@ class FreedomMap(GrMap):
         for u in range(1, ext_map.shape[0] - 1):
             for v in range(1, ext_map.shape[1] - 1):
                 if ext_map[u, v] == 1:
-                    val = self._apply_mask(ext_map, (u, v), self.mask0)
+                    val = self._apply_mask(ext_map, (u, v), self.mask_0)
                     if val > 4:
-                        val += self._apply_mask(ext_map, (u, v), self.mask1)
+                        val += self._apply_mask(ext_map, (u, v), self.mask_1)
                     _map[u - 1, v - 1] = val ** 2
         return _map
 
@@ -260,8 +264,8 @@ class FreedomMap(GrMap):
 
 
 class BombArea(GrMap, TimeBomb):
-    """
-    Takes care of managing the bombs with their timers.
+    """ Takes care of managing the bombs with their timers.
+
     Contains a map of zeros with ones on the areas of effect of a single bomb.
     The update method allows to change the time of placement of the bomb, which is related to the time of explosion.
     """
@@ -273,7 +277,7 @@ class BombArea(GrMap, TimeBomb):
         "owned"
     ]
 
-    def __init__(self, size, step: int, position: Tuple[int, int], owned: bool, danger_thresh: int):
+    def __init__(self, size, step: int, position: Tuple[int, int], owned: bool, danger_thresh: int) -> None:
         super().__init__(size=size, v_border=np.full((size[0] + 4, 1), -1), step=step, position=position)
         self._idx_cross = [(-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0), (0, 2), (0, 1), (0, -1), (0, -2)]
         self.affected_area = 0
@@ -283,7 +287,7 @@ class BombArea(GrMap, TimeBomb):
         self.danger_thresh = danger_thresh
         self._initialize()
 
-    def _initialize(self):
+    def _initialize(self) -> None:
         self._map = np.zeros(self.size)
         self._add_cross_to_map(self.position)
 
@@ -294,14 +298,12 @@ class BombArea(GrMap, TimeBomb):
             self.placement_step = new_time
             self.owned = owned
 
-    def should_be_avoided(self, tick):
-        if self.time_to_explode(tick) < self.danger_thresh:  # (self.affected_area / 4):
-            return True
-        else:
-            return False
+    def should_be_avoided(self, tick: int) -> bool:
+        """ Check if a tile will be in range of an explosion at a given time step (tick). """
+        return True if self.time_to_explode(tick) < self.danger_thresh else False
 
-    def _add_cross_to_map(self, tile) -> None:
-        # Add borders of map:
+    def _add_cross_to_map(self, tile: Tuple[int, int]) -> None:
+        """ Add area of effect of the bomb to the map. """
         for c in self._idx_cross:
             affected_tile = (tile[0] + c[0], tile[1] + c[1])
             if self.size[0] > affected_tile[0] >= 0 and self.size[1] > affected_tile[1] >= 0 \
@@ -320,7 +322,7 @@ class BombAreaMap(GrMap):
         "danger_thresh"
     ]
 
-    def __init__(self, size: Tuple[int, int], danger_thresh: Optional[int] = 1):
+    def __init__(self, size: Tuple[int, int], danger_thresh: Optional[int] = 1) -> None:
         super().__init__(size)
         self.bombs = []
         self.danger_thresh = danger_thresh
@@ -365,7 +367,7 @@ class BombAreaMap(GrMap):
         # another with
         self._update_maps(game_state.tick_number)
 
-    def _update_maps(self, tick_number):
+    def _update_maps(self, tick_number: int) -> None:
         # TODO: The owned/ not owned maps don't differenciate when they collide on who would take the bomb.
         # It would be possible that placing a bomb in one of those conflictive areas we lost all of our area or
         # we stole it. We should add some checks for this, to ensure that the areas are well defined.
@@ -389,20 +391,19 @@ class BombAreaMap(GrMap):
         self.danger_zone = np.where(danger_map > 0, 0, 1)
         self.all_map = np.where(all_map > 0, 0, 1)
 
-    def is_in_danger_at(self, tile: Tuple[int, int]):
+    def is_in_danger_at(self, tile: Tuple[int, int]) -> Tuple[np.array, bool]:
+        """ Check if a tile is in a danger zone. """
         col = tile[0]
         row = tile[1]
-        if self.danger_zone[col][row] == 1:
-            return self.danger_zone, False
-        else:
-            return self.danger_zone, True
+        return self.danger_zone, False if self.danger_zone[col][row] == 1 else True
 
     def get_mask_at_step(self, step: int) -> np.array:
+        """ Get a map with zeros where a bomb will be exploding, given a specific step. """
         mask = np.zeros(self.size)
         for bomb in self.bombs:
             if bomb.time_to_explode(step) == 0:
                 mask += bomb._map
         return np.where(mask > 0, 0, 1)
 
-    def set_danger_threshold(self, threshold):
+    def set_danger_threshold(self, threshold: int) -> None:
         self.danger_thresh = threshold

@@ -36,7 +36,8 @@ class TestMapProcessing(unittest.TestCase):
 
         # Check different points
         self.assertAlmostEquals(dm.value_at_point((0, 3)), 13.1)
-        self.assertAlmostEquals(dm.value_at_point((4, 0)), 8.1)
+        self.assertEqual(dm.value_at_point((4, 0)), 0)
+        self.assertAlmostEquals(dm.value_at_point((4, 1)), 7.1)
         self.assertAlmostEquals(dm.value_at_point((4, 6)), 4.1)
 
         # Check unaccessible area
@@ -57,7 +58,7 @@ class TestMapProcessing(unittest.TestCase):
 
         bm.update(state=game_state, player_pos=(1, 5), player_id=0)
 
-        self.assertAlmostEquals(bm.value_at_point((0, 0)), 2.0)
+        self.assertAlmostEquals(bm.value_at_point((0, 0)), 4.0)
         self.assertAlmostEquals(bm.value_at_point((2, 1)), 1.0)
         self.assertAlmostEquals(bm.value_at_point((2, 4)), 1.0)
         self.assertAlmostEquals(bm.value_at_point((1, 2)), 1.0)
@@ -79,13 +80,15 @@ class TestMapProcessing(unittest.TestCase):
 
         fm.update(state=game_state, player_pos=(1, 5), player_id=0)
 
+        print(fm._map)
+
         self.assertAlmostEquals(fm.value_at_point((0, 0)), 0.0)
-        self.assertAlmostEquals(fm.value_at_point((2, 1)), 6.0)
-        self.assertAlmostEquals(fm.value_at_point((2, 4)), 6.0)
-        self.assertAlmostEquals(fm.value_at_point((1, 2)), 6.0)
-        self.assertAlmostEquals(fm.value_at_point((4, 4)), 5.0)
-        self.assertAlmostEquals(fm.value_at_point((4, 5)), 7.0)
-        self.assertAlmostEquals(fm.value_at_point((4, 6)), 5.0)
-        self.assertAlmostEquals(fm.value_at_point((3, 5)), 9.0)
-        self.assertAlmostEquals(fm.value_at_point((3, 6)), 6.0)
-        self.assertAlmostEquals(fm.value_at_point((2, 2)), 5.0)
+        self.assertAlmostEquals(fm.value_at_point((2, 1)), 16.0)
+        self.assertAlmostEquals(fm.value_at_point((2, 4)), 16.0)
+        self.assertAlmostEquals(fm.value_at_point((1, 2)), 16.0)
+        self.assertAlmostEquals(fm.value_at_point((4, 4)), 16.0)
+        self.assertAlmostEquals(fm.value_at_point((4, 5)), 49.0)
+        self.assertAlmostEquals(fm.value_at_point((4, 6)), 16.0)
+        self.assertAlmostEquals(fm.value_at_point((3, 5)), 81.0)
+        self.assertAlmostEquals(fm.value_at_point((3, 6)), 16.0)
+        self.assertAlmostEquals(fm.value_at_point((2, 2)), 16.0)

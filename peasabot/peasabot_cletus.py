@@ -1,10 +1,11 @@
 """
-Our peasant bot.
+Our cletus bot.
 """
+import time
+
 from coderone.dungeon.agent import GameState, PlayerState
 
 from .consumer_bot import ConsumerBot
-import time
 
 MAX_BOMB = 5  # Don't pick up more
 MIN_BOMB = 1  # Don't place bomb
@@ -14,6 +15,7 @@ MAX_BOMB_TICK_THRESHOLD = 35  # Added time to block the tile for future bombs --
 CORNER_THRESH = 30  # Threshold that indicates when a spot has a very low degree of freedom
 ATTACK_THRESH = 70
 DANGER_THRESH = 0  # <-- NOT USED
+
 
 class Agent(ConsumerBot):
     """ Agent bot."""
@@ -37,7 +39,8 @@ class Agent(ConsumerBot):
         action = (self.planned_actions.pop(0) if self.planned_actions else '')
 
         if action == 'p':
-            if self.free_map._map[self.location] < CORNER_THRESH and self.bomb_management_map.all_map[self.location] < 1:
+            if (self.free_map._map[self.location] < CORNER_THRESH and
+                    self.bomb_management_map.all_map[self.location] < 1):
                 if not self.planned_actions:
                     action = ''
                 else:
@@ -72,7 +75,8 @@ class Agent(ConsumerBot):
         elif self.next_plan == "run":
             d = danger_zone if self.bomb_management_map.last_placed_bomb is None \
                 else danger_zone - self.bomb_management_map.last_placed_bomb._map
-            plan, _ = self.path_to_freest_area(d) # <- change for freest area which multiplies for the accesible_area_mask
+            # Change for freest area which multiplies for the accesible_area_mask:
+            plan, _ = self.path_to_freest_area(d)
             self.next_plan = None
         # 4 Plan for killing, finish it if started
         elif ammo_status and self.ammo < MAX_BOMB:

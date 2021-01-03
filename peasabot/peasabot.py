@@ -38,7 +38,7 @@ class Agent(ConsumerBot):
 
         if action == 'p':
             if (self.free_map._map[self.location] < CORNER_THRESH and
-                self.bomb_management_map.all_map[self.location] < 1):
+                    self.bomb_management_map.all_map[self.location] < 1):
                 if not self.planned_actions:
                     action = ''
                 else:
@@ -69,7 +69,8 @@ class Agent(ConsumerBot):
         elif self.next_plan == "run":
             d = danger_zone if self.bomb_management_map.last_placed_bomb is None \
                 else danger_zone - self.bomb_management_map.last_placed_bomb._map
-            plan, _ = self.path_to_freest_area(d)  # <- change for freest area which multiplies for the accesible_area_mask
+            # Change for freest area which multiplies for the accesible_area_mask:
+            plan, _ = self.path_to_freest_area(d)
             self.next_plan = None
         # 4 Plan for killing, finish it if started
         elif ammo_status and self.ammo < MAX_BOMB:

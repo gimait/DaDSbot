@@ -1,10 +1,11 @@
 """
-Our peasant bot.
+Our survivor bot.
 """
+import time
+
 from coderone.dungeon.agent import GameState, PlayerState
 
 from .consumer_bot import ConsumerBot
-import time
 
 MAX_BOMB = 5  # Don't pick up more
 MIN_BOMB = 1  # Don't place bomb
@@ -15,6 +16,8 @@ DANGER_THRESH = 0  # <-- NOT USED
 
 
 DEBUG = 1
+
+
 class Agent(ConsumerBot):
     """ Agent bot."""
     def __init__(self):
@@ -31,7 +34,8 @@ class Agent(ConsumerBot):
 
         action = (self.planned_actions.pop(0) if self.planned_actions else '')
         if action == 'p':
-            if self.free_map._map[self.location] < CORNER_THRESH and self.bomb_management_map.all_map[self.location] < 1:
+            if (self.free_map._map[self.location] < CORNER_THRESH and
+                    self.bomb_management_map.all_map[self.location] < 1):
                 if not self.planned_actions:
                     action = ''
                 else:
@@ -45,8 +49,8 @@ class Agent(ConsumerBot):
         if dt > 0.05:
             print("Cuidao!! {}".format(dt))
         if DEBUG:
-            print('ACtion {} ---- QUEUE {}'.format(action, self.planned_actions) )
-            print('*' * 25 )
+            print('ACtion {} ---- QUEUE {}'.format(action, self.planned_actions))
+            print('*' * 25)
         return action
 
     def _next_move_survibot(self, updated_map):
@@ -59,7 +63,7 @@ class Agent(ConsumerBot):
 
         kill_tiles, kill_status = self.is_killing_an_option()
 
-        plan= ['']
+        plan = ['']
         # TANGENTIAL Behaviours Top priorities.
         if self.danger_status:
             plan, _ = self.plan_to_safest_area(danger_zone)
@@ -70,7 +74,7 @@ class Agent(ConsumerBot):
         elif self.next_plan == "run":
             d = danger_zone if self.bomb_management_map.last_placed_bomb is None \
                 else danger_zone - self.bomb_management_map.last_placed_bomb._map
-            plan, _ = self.path_to_freest_area(d) # Uses the emergency planner
+            plan, _ = self.path_to_freest_area(d)  # Uses the emergency planner
             self.next_plan = None
             self.keep_plan = len(plan)
             if DEBUG:
@@ -78,7 +82,7 @@ class Agent(ConsumerBot):
         elif ammo_status and self.ammo < MAX_BOMB:
             plan, _ = self.plan_to_tile(ammo_tile)
             if DEBUG:
-                print('AMMO I GO '+ str(plan))
+                print('AMMO I GO ' + str(plan))
         # FARM
         elif treasure_status or self.ammo > MIN_BOMB:
             # 1  point to pick up is always good
@@ -114,25 +118,6 @@ class Agent(ConsumerBot):
                 print('MOVE FREE ' + str(plan))
 
         self.queue_manager(plan, updated_map)
-            # If there is still ammo around and we are bored, let's go catch it
-            # elif ammo_status:
-            #    plan, _ = self.plan_to_tile(ammo_tile)
-
-
-        #        # KILL
-#        elif (0 < self.free_map._map[self.opponent_tile] < ATTACK_THRESH) and \
-#             (self.previous_plan == "kill" or kill_status):
-#            plan, connected = self.plan_to_tile(kill_tiles)
-#            self.previous_plan = (None if not plan else "kill")
-#            if connected:
-#                plan.append('p')
-
-  #      # 4 If we finished a plan, get away
-  #      elif self.previous_plan == "run":
-  #          d = danger_zone if self.bomb_management_map.last_placed_bomb is None \
-  #              else danger_zone - self.bomb_management_map.last_placed_bomb._map
-  #          plan, _ = self.path_to_freest_area(d) # <- change for freest area which multiplies for the accesible_area_mask
-  #          self.previous_plan = None
 
         return plan
 
