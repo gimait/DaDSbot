@@ -143,10 +143,11 @@ class ConsumerBot:
         _map = np.multiply(self.map_representation._map,
                            self.bomb_management_map.opponent)
         for tile in tlist:
-            tile_value = _map[tile[0]]
+            tile_value = _map[tile[0]] * 2
             if tile_value > best_weight:
                 best_tile = tile[0]
             if tile_value > 0 and self.game_state.is_in_bounds(tile[1]):
+                tile_value = _map[tile[1]]
                 if tile_value > best_weight:
                     best_tile = tile[1]
         return best_tile
@@ -204,6 +205,8 @@ class ConsumerBot:
         tile = tuple(goal_tile)
         if not goal_tile or eval_map.value_at_point(tile) == 0:
             return tiles, [], False
+        if tile == self.location:
+            return [tile], [''], True
 
         while tile != self.location and ite != timeout:
             moves = np.array([])
@@ -276,7 +279,7 @@ class ConsumerBot:
     def is_ore_hot(self) -> Tuple[Point, bool]:
         """ Check for opportunities to place a bomb on a ore that will explode soon. """
         tiles_list = []
-        for tile in [ore.position for ore in self.ore_counter if ore.counter < 3]:
+        for tile in [ore.position for ore in self.ore_counter if 0 < ore.counter < 3]:
             t = self.get_big_cross_tiles(tile)
             tiles_list = tiles_list + t
         bomb_tile = self.evaluate_bomb(tiles_list)
