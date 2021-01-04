@@ -30,7 +30,8 @@
 # Peasabot
 
 Agent submission for the Coder One AI Sports Challenge 2019.
-Creators: Artificial Incompetence.
+
+Team: **Artificial Incompetence**.
 
 ## Strategy
 This solution uses multiple map representations to calculate optimal positions for bomb placement and locate safe areas in the map.
